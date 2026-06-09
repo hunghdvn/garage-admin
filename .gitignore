@@ -1,0 +1,8 @@
+/garage-admin
+/tmp
+*.db
+*.db-shm
+*.db-wal
+web/dist/
+web/node_modules/
+.env
