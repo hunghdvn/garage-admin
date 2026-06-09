@@ -10,6 +10,19 @@
 
 **Module path:** `github.com/HungHD/garage-admin` (adjust if the GitHub repo differs).
 
+> **STRUCTURE UPDATE (applied after Task 3):** All application code lives under `src/`.
+> The Go module root is `src/` (`src/go.mod`); Go packages are `src/internal/...` and
+> `src/cmd/garage-admin`. The frontend is `src/web/`. **All `go` commands (build/test/run)
+> are executed from inside `src/`.** Repo-root holds `README.md`, `docs/`, `.github/`,
+> `Dockerfile`, `.gitignore`, `.dockerignore`.
+>
+> **Embed/dist path (important):** Vite builds the frontend into `src/internal/web/dist`
+> (vite `outDir: '../internal/web/dist'`). `src/internal/web/embed.go` uses
+> `//go:embed all:dist`, which is relative to the Go file, so it embeds exactly
+> `src/internal/web/dist`. The placeholder `index.html` (Task 14) is created at
+> `src/internal/web/dist/index.html`. This corrected path supersedes any `web/dist`
+> reference in Tasks 14/16/20/21 below.
+
 **Verification note:** Frontend UI is verified with the **Playwright MCP** browser tools (`browser_navigate`, `browser_snapshot`, `browser_type`, `browser_click`, `browser_take_screenshot`) against the locally running binary, in addition to any unit tests.
 
 ---
