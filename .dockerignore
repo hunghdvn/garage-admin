@@ -1,0 +1,9 @@
+.git
+tmp
+src/tmp
+*.db
+src/web/node_modules
+src/.playwright-mcp
+.playwright-mcp
+docs
+README.md
