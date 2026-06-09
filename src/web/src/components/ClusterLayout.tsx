@@ -40,31 +40,31 @@ export function ClusterLayout() {
       }],
     })).data,
     onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã stage thay đổi' }); setNodeId(''); setZone(''); setCapacity(''); setTags('') },
-    onError: () => notifications.show({ color: 'red', message: 'Stage thất bại' }),
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Stage thất bại' }),
   })
 
   const previewMut = useMutation({
     mutationFn: async () => (await api.post<LayoutPreview>('/cluster/layout/preview', {})).data,
     onSuccess: (data) => setPreview(data),
-    onError: () => notifications.show({ color: 'red', message: 'Preview thất bại' }),
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Preview thất bại' }),
   })
 
   const applyMut = useMutation({
     mutationFn: async (version: number) => (await api.post('/cluster/layout/apply', { version })).data,
     onSuccess: () => { refresh(); setApplyOpen(false); setPreview(null); notifications.show({ color: 'green', message: 'Đã apply layout' }) },
-    onError: () => notifications.show({ color: 'red', message: 'Apply thất bại' }),
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Apply thất bại' }),
   })
 
   const revertMut = useMutation({
     mutationFn: async () => (await api.post('/cluster/layout/revert', {})).data,
     onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã revert staged changes' }) },
-    onError: () => notifications.show({ color: 'red', message: 'Revert thất bại' }),
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Revert thất bại' }),
   })
 
   const connectMut = useMutation({
     mutationFn: async () => (await api.post('/cluster/connect', { nodes: connectText.split('\n').map((l) => l.trim()).filter(Boolean) })).data,
     onSuccess: () => { refresh(); setConnectText(''); notifications.show({ color: 'green', message: 'Đã gửi yêu cầu kết nối' }) },
-    onError: () => notifications.show({ color: 'red', message: 'Kết nối thất bại' }),
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Kết nối thất bại' }),
   })
 
   if (layout.isLoading || !layout.data) return <Loader />
