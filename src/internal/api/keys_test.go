@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -48,8 +49,7 @@ func TestUpdateKeyProxiesCreateBucket(t *testing.T) {
 	var sawAllow bool
 	r, cookie := newGarageBackedAPI(t, "admin", func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/v2/UpdateKey" {
-			b := make([]byte, req.ContentLength)
-			req.Body.Read(b)
+			b, _ := io.ReadAll(req.Body)
 			sawAllow = strings.Contains(string(b), "allow") || strings.Contains(string(b), "name")
 		}
 		w.Write([]byte(`{"accessKeyId":"GK1","created":"x","name":"r","expiration":null,"expired":false,"permissions":{"createBucket":true},"buckets":[]}`))
@@ -60,5 +60,29 @@ func TestUpdateKeyProxiesCreateBucket(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !sawAllow {
 		t.Fatalf("code=%d sawAllow=%v", rec.Code, sawAllow)
+	}
+}
+
+func TestRevealKeyRequiresAdmin(t *testing.T) {
+	garageHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"accessKeyId":"GK1","secretAccessKey":"S","created":"x","name":"k","expiration":null,"expired":false,"permissions":{"createBucket":false},"buckets":[]}`))
+	}
+	// readonly cannot reveal
+	rRO, cRO := newGarageBackedAPI(t, "readonly", garageHandler)
+	recRO := httptest.NewRecorder()
+	reqRO := httptest.NewRequest("GET", "/api/keys/GK1?reveal=1", nil)
+	reqRO.AddCookie(cRO)
+	rRO.ServeHTTP(recRO, reqRO)
+	if recRO.Code != http.StatusForbidden {
+		t.Fatalf("readonly reveal code=%d want 403", recRO.Code)
+	}
+	// admin can reveal and gets the secret
+	r, cookie := newGarageBackedAPI(t, "admin", garageHandler)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/keys/GK1?reveal=1", nil)
+	req.AddCookie(cookie)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"secretAccessKey"`) {
+		t.Fatalf("admin reveal code=%d body=%s", rec.Code, rec.Body.String())
 	}
 }

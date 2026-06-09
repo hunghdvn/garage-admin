@@ -1,6 +1,7 @@
 import { Select } from '@mantine/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCluster } from '../cluster/ClusterContext'
+import { setSelectedClusterId } from '../api/client'
 
 export function ClusterSelector() {
   const { clusters, selectedId, setSelectedId } = useCluster()
@@ -14,8 +15,9 @@ export function ClusterSelector() {
       value={selectedId != null ? String(selectedId) : null}
       onChange={(v) => {
         if (v) {
-          setSelectedId(Number(v))
-          // Refetch cluster-scoped data for the newly selected cluster.
+          const id = Number(v)
+          setSelectedClusterId(id)   // update interceptor BEFORE any refetch
+          setSelectedId(id)
           qc.invalidateQueries()
         }
       }}
