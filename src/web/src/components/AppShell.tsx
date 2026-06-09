@@ -1,10 +1,11 @@
 import { AppShell as MantineAppShell, Burger, Group, NavLink, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconDashboard, IconSettings, IconLogout } from '@tabler/icons-react'
+import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey } from '@tabler/icons-react'
 import { Link, useLocation } from 'react-router-dom'
 import { type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { ThemeSwitcher } from './ThemeSwitcher'
+import { ClusterSelector } from './ClusterSelector'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [opened, { toggle }] = useDisclosure()
@@ -24,6 +25,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Title order={4}>Garage Admin</Title>
           </Group>
           <Group>
+            <ClusterSelector />
             <ThemeSwitcher />
             <NavLink label={`${user?.username} (${user?.role})`} leftSection={<IconLogout size={16} />} onClick={logout} w="auto" />
           </Group>
@@ -31,6 +33,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </MantineAppShell.Header>
       <MantineAppShell.Navbar p="md">
         <NavLink component={Link} to="/" label="Dashboard" active={loc.pathname === '/'} leftSection={<IconDashboard size={18} />} />
+        <NavLink component={Link} to="/buckets" label="Buckets" active={loc.pathname.startsWith('/buckets')} leftSection={<IconBucket size={18} />} />
+        <NavLink component={Link} to="/keys" label="Access Keys" active={loc.pathname.startsWith('/keys')} leftSection={<IconKey size={18} />} />
         <NavLink component={Link} to="/settings" label="Settings" active={loc.pathname === '/settings'} leftSection={<IconSettings size={18} />} />
       </MantineAppShell.Navbar>
       <MantineAppShell.Main>{children}</MantineAppShell.Main>
