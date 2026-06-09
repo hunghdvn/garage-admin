@@ -1,8 +1,9 @@
-/garage-admin
 /tmp
 *.db
 *.db-shm
 *.db-wal
-web/dist/
-web/node_modules/
+src/garage-admin
+src/web/node_modules/
 .env
+
+# Note: src/internal/web/dist is intentionally tracked (embedded into the binary).
