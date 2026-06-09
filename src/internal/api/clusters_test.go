@@ -67,3 +67,14 @@ func TestReadonlyCannotCreateCluster(t *testing.T) {
 		t.Errorf("code = %d, want 403", rec.Code)
 	}
 }
+
+func TestCreateClusterRejectsBlankName(t *testing.T) {
+	srv, cookie := newClusterAPITest(t, "admin")
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/clusters", strings.NewReader(`{"name":"  ","admin_endpoint":"http://x","admin_token":"t"}`))
+	req.AddCookie(cookie)
+	srv.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("code = %d, want 400", rec.Code)
+	}
+}

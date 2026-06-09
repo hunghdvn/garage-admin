@@ -28,14 +28,21 @@ func main() {
 		log.Fatalf("bootstrap: %v", err)
 	}
 
+	if err := database.DeleteExpiredSessions(); err != nil {
+		log.Printf("warning: failed to sweep expired sessions: %v", err)
+	}
+
 	cipher, err := crypto.New(cfg.SecretKey)
 	if err != nil {
 		log.Fatalf("crypto: %v", err)
 	}
 
+	authSvc := auth.NewService(database)
+	authSvc.SetSecure(cfg.CookieSecure)
+
 	srv := &api.Server{
 		DB:     database,
-		Auth:   auth.NewService(database),
+		Auth:   authSvc,
 		Cipher: cipher,
 		Static: web.Handler(),
 	}

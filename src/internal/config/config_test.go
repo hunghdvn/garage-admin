@@ -35,3 +35,15 @@ func TestLoadSecretMustBe32Bytes(t *testing.T) {
 		t.Fatal("expected error when APP_SECRET_KEY is not 32 bytes")
 	}
 }
+
+func TestLoadCookieSecure(t *testing.T) {
+	t.Setenv("APP_SECRET_KEY", "0123456789abcdef0123456789abcdef")
+	t.Setenv("APP_COOKIE_SECURE", "true")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.CookieSecure {
+		t.Error("expected CookieSecure=true")
+	}
+}

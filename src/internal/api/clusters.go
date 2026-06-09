@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -18,6 +19,10 @@ type clusterInput struct {
 	S3AccessKey   string `json:"s3_access_key"`
 	S3SecretKey   string `json:"s3_secret_key"`
 	IsDefault     bool   `json:"is_default"`
+}
+
+func validClusterInput(in *clusterInput) bool {
+	return strings.TrimSpace(in.Name) != "" && strings.TrimSpace(in.AdminEndpoint) != ""
 }
 
 // clusterView is the safe representation returned to clients (no secrets).
@@ -59,6 +64,10 @@ func (s *Server) handleCreateCluster(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if !validClusterInput(&in) {
+		writeError(w, http.StatusBadRequest, "name and admin_endpoint are required")
+		return
+	}
 	c, err := s.clusterFromInput(&in)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "encrypt failed")
@@ -86,6 +95,10 @@ func (s *Server) handleUpdateCluster(w http.ResponseWriter, r *http.Request) {
 	var in clusterInput
 	if err := decodeJSON(r, &in); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if !validClusterInput(&in) {
+		writeError(w, http.StatusBadRequest, "name and admin_endpoint are required")
 		return
 	}
 	c, err := s.clusterFromInputPreserving(&in, existing)
