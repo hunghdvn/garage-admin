@@ -1,0 +1,16 @@
+/tmp
+*.db
+*.db-shm
+*.db-wal
+src/garage-admin
+src/web/node_modules/
+.env
+
+# TypeScript / Vite build artifacts
+*.tsbuildinfo
+src/web/vite.config.js
+src/web/vite.config.d.ts
+src/.playwright-mcp/
+.playwright-mcp/
+
+# Note: src/internal/web/dist is intentionally tracked (embedded into the binary).
