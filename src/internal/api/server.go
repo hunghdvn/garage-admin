@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -11,6 +12,7 @@ import (
 	"github.com/HungHD/garage-admin/internal/auth"
 	"github.com/HungHD/garage-admin/internal/crypto"
 	"github.com/HungHD/garage-admin/internal/db"
+	"github.com/HungHD/garage-admin/internal/garage"
 )
 
 // Server holds dependencies shared by handlers.
@@ -51,6 +53,29 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// writeGarageError maps a Garage client error to an HTTP response. Garage client
+// errors (4xx) are surfaced with their real status and message; anything else
+// (network failure, upstream 5xx) becomes 502 Bad Gateway.
+func writeGarageError(w http.ResponseWriter, err error) {
+	var ae *garage.APIError
+	if errors.As(err, &ae) {
+		if ae.StatusCode >= 400 && ae.StatusCode < 500 {
+			msg := ae.Message
+			if msg == "" {
+				msg = ae.Raw
+			}
+			writeError(w, ae.StatusCode, msg)
+			return
+		}
+		// upstream 5xx → surface message but as 502
+		if ae.Message != "" {
+			writeError(w, http.StatusBadGateway, ae.Message)
+			return
+		}
+	}
+	writeError(w, http.StatusBadGateway, err.Error())
 }
 
 func decodeJSON(r *http.Request, v any) error {

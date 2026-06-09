@@ -77,6 +77,23 @@ func TestCreateBucketProxiesGlobalAlias(t *testing.T) {
 	}
 }
 
+func TestCreateBucketPropagatesGarage400(t *testing.T) {
+	r, cookie := newGarageBackedAPI(t, "admin", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"code":"InvalidRequest","message":"Invalid bucket name"}`))
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/buckets", strings.NewReader(`{"global_alias":"BadName"}`))
+	req.AddCookie(cookie)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("code=%d want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "Invalid bucket name") {
+		t.Fatalf("body=%s", rec.Body.String())
+	}
+}
+
 func TestPermissionEndpointProxies(t *testing.T) {
 	var gotPath string
 	r, cookie := newGarageBackedAPI(t, "admin", func(w http.ResponseWriter, req *http.Request) {

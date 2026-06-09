@@ -58,7 +58,7 @@ func (s *Server) handleClusterHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	h, err := client.GetClusterHealth()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, h)
@@ -72,7 +72,7 @@ func (s *Server) handleClusterStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	st, err := client.GetClusterStatus()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, st)

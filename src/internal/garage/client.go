@@ -18,6 +18,21 @@ type Client struct {
 	http     *http.Client
 }
 
+// APIError is returned by the client when Garage responds with a non-2xx status.
+type APIError struct {
+	StatusCode int
+	Code       string // Garage error code, e.g. "InvalidRequest"
+	Message    string // human-readable message from Garage
+	Raw        string // raw response body
+}
+
+func (e *APIError) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("garage %d %s: %s", e.StatusCode, e.Code, e.Message)
+	}
+	return fmt.Sprintf("garage %d: %s", e.StatusCode, e.Raw)
+}
+
 // New creates a client. endpoint is like "http://192.168.101.8:3903".
 func New(endpoint, token string) *Client {
 	return &Client{
@@ -82,7 +97,16 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("garage: %s %s -> %d: %s", method, path, resp.StatusCode, string(data))
+		ae := &APIError{StatusCode: resp.StatusCode, Raw: string(data)}
+		var parsed struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(data, &parsed) == nil {
+			ae.Code = parsed.Code
+			ae.Message = parsed.Message
+		}
+		return ae
 	}
 	if out != nil && len(data) > 0 {
 		if err := json.Unmarshal(data, out); err != nil {

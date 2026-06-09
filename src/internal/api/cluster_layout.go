@@ -14,7 +14,7 @@ func (s *Server) handleClusterStatistics(w http.ResponseWriter, r *http.Request)
 	}
 	stats, err := client.GetClusterStatistics()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
@@ -28,7 +28,7 @@ func (s *Server) handleGetLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	layout, err := client.GetClusterLayout()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, layout)
@@ -42,7 +42,7 @@ func (s *Server) handleLayoutHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	hist, err := client.GetClusterLayoutHistory()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, hist)
@@ -79,7 +79,7 @@ func (s *Server) handleStageLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	layout, err := client.UpdateClusterLayout(changes)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, layout)
@@ -93,7 +93,7 @@ func (s *Server) handlePreviewLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	prev, err := client.PreviewClusterLayoutChanges()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, prev)
@@ -114,7 +114,7 @@ func (s *Server) handleApplyLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := client.ApplyClusterLayout(body.Version)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
@@ -128,7 +128,7 @@ func (s *Server) handleRevertLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	layout, err := client.RevertClusterLayout()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, layout)
@@ -149,7 +149,7 @@ func (s *Server) handleConnectNodes(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := client.ConnectClusterNodes(body.Nodes)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, res)

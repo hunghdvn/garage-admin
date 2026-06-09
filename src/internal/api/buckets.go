@@ -30,7 +30,7 @@ func (s *Server) handleListBuckets(w http.ResponseWriter, r *http.Request) {
 	}
 	list, err := client.ListBuckets()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -44,7 +44,7 @@ func (s *Server) handleGetBucket(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := client.GetBucketInfo(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, info)
@@ -65,7 +65,7 @@ func (s *Server) handleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := client.CreateBucket(body.GlobalAlias)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, info)
@@ -105,7 +105,7 @@ func (s *Server) handleUpdateBucket(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := client.UpdateBucket(chi.URLParam(r, "id"), req)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, info)
@@ -118,7 +118,7 @@ func (s *Server) handleDeleteBucket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := client.DeleteBucket(chi.URLParam(r, "id")); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -138,7 +138,7 @@ func (s *Server) handleAddBucketAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := client.AddBucketAlias(chi.URLParam(r, "id"), body.Alias); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -151,7 +151,7 @@ func (s *Server) handleRemoveBucketAlias(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := client.RemoveBucketAlias(chi.URLParam(r, "id"), chi.URLParam(r, "alias")); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -182,7 +182,7 @@ func (s *Server) handleBucketPermission(w http.ResponseWriter, r *http.Request) 
 		err = client.AllowBucketKey(id, body.AccessKeyID, perms)
 	}
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

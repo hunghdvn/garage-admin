@@ -42,7 +42,11 @@ export function BucketsPage() {
       close()
       setAlias('')
     },
-    onError: () => notifications.show({ color: 'red', message: 'Tạo bucket thất bại' }),
+    onError: (e: any) =>
+      notifications.show({
+        color: 'red',
+        message: e?.response?.data?.error || 'Tạo bucket thất bại',
+      }),
   })
 
   const deleteMut = useMutation({
@@ -95,7 +99,8 @@ export function BucketsPage() {
       <Modal opened={opened} onClose={close} title="Tạo bucket">
         <Stack>
           <TextInput label="Global alias (tên bucket)" value={alias}
-            onChange={(e) => setAlias(e.currentTarget.value)} required />
+            onChange={(e) => setAlias(e.currentTarget.value)} required
+            description="Chỉ a-z, 0-9, dấu chấm, gạch ngang; 3–63 ký tự; không chữ hoa/khoảng trắng" />
           <Button onClick={() => createMut.mutate(alias)} loading={createMut.isPending} disabled={!alias}>
             Tạo
           </Button>
