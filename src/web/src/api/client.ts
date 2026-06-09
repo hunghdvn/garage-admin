@@ -111,3 +111,75 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+export interface ClusterNode {
+  id: string
+  hostname: string
+  addr: string
+  isUp: boolean
+  draining: boolean
+  lastSeenSecsAgo: number | null
+  garageVersion: string
+  role: { zone: string; capacity: number | null; tags: string[] } | null
+  dataPartition: { available: number; total: number } | null
+  metadataPartition: { available: number; total: number } | null
+}
+
+export interface ClusterStatus {
+  layoutVersion: number
+  nodes: ClusterNode[]
+}
+
+export interface ClusterStatistics {
+  freeform: string
+  dataAvail: number
+  metadataAvail: number
+  incompleteAvailInfo: boolean
+  bucketCount: number
+  totalObjectCount: number
+  totalObjectBytes: number
+}
+
+export interface LayoutRole {
+  id: string
+  zone: string
+  tags: string[]
+  capacity: number | null
+  storedPartitions: number
+  usableCapacity: number | null
+}
+
+export interface StagedRoleChange {
+  id: string
+  remove: boolean
+  zone: string
+  capacity: number | null
+  tags: string[]
+}
+
+export interface ClusterLayoutData {
+  version: number
+  roles: LayoutRole[]
+  parameters: unknown
+  partitionSize: number
+  stagedRoleChanges: StagedRoleChange[]
+  stagedParameters: unknown
+}
+
+export interface LayoutVersionInfo {
+  version: number
+  status: string
+  storageNodes: number
+  gatewayNodes: number
+}
+
+export interface LayoutHistory {
+  currentVersion: number
+  minAck: number
+  versions: LayoutVersionInfo[]
+}
+
+export interface LayoutPreview {
+  message: string[]
+  newLayout: unknown
+}

@@ -29,7 +29,7 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	list, err := client.ListKeys()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -52,7 +52,7 @@ func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := client.GetKeyInfo(chi.URLParam(r, "id"), reveal)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, info)
@@ -73,7 +73,7 @@ func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := client.CreateKey(body.Name)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, info)
@@ -96,7 +96,7 @@ func (s *Server) handleImportKey(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := client.ImportKey(body.AccessKeyID, body.SecretAccessKey, body.Name)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, info)
@@ -127,7 +127,7 @@ func (s *Server) handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 	}
 	info, err := client.UpdateKey(chi.URLParam(r, "id"), req)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, info)
@@ -140,7 +140,7 @@ func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := client.DeleteKey(chi.URLParam(r, "id")); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

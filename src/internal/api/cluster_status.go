@@ -15,6 +15,14 @@ func (s *Server) mountCluster(r chi.Router) {
 		r.Use(s.Auth.RequireAuth)
 		r.Get("/health", s.handleClusterHealth)
 		r.Get("/status", s.handleClusterStatus)
+		r.Get("/statistics", s.handleClusterStatistics)
+		r.Get("/layout", s.handleGetLayout)
+		r.Get("/layout/history", s.handleLayoutHistory)
+		r.With(s.Auth.RequireAdmin).Post("/layout/stage", s.handleStageLayout)
+		r.With(s.Auth.RequireAdmin).Post("/layout/preview", s.handlePreviewLayout)
+		r.With(s.Auth.RequireAdmin).Post("/layout/apply", s.handleApplyLayout)
+		r.With(s.Auth.RequireAdmin).Post("/layout/revert", s.handleRevertLayout)
+		r.With(s.Auth.RequireAdmin).Post("/connect", s.handleConnectNodes)
 	})
 }
 
@@ -50,7 +58,7 @@ func (s *Server) handleClusterHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	h, err := client.GetClusterHealth()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, h)
@@ -64,7 +72,7 @@ func (s *Server) handleClusterStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	st, err := client.GetClusterStatus()
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, st)
