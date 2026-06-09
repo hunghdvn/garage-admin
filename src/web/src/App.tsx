@@ -8,6 +8,7 @@ import { BucketsPage } from './pages/BucketsPage'
 import { BucketDetailPage } from './pages/BucketDetailPage'
 import { KeysPage } from './pages/KeysPage'
 import { KeyDetailPage } from './pages/KeyDetailPage'
+import { ClusterPage } from './pages/ClusterPage'
 
 export function App() {
   const { user, loading } = useAuth()
@@ -29,6 +30,7 @@ export function App() {
         <Route path="/buckets/:id" element={<BucketDetailPage />} />
         <Route path="/keys" element={<KeysPage />} />
         <Route path="/keys/:id" element={<KeyDetailPage />} />
+        <Route path="/cluster" element={<ClusterPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

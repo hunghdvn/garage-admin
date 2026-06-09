@@ -1,6 +1,6 @@
 import { AppShell as MantineAppShell, Burger, Group, NavLink, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey } from '@tabler/icons-react'
+import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey, IconServer } from '@tabler/icons-react'
 import { Link, useLocation } from 'react-router-dom'
 import { type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
@@ -35,6 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <NavLink component={Link} to="/" label="Dashboard" active={loc.pathname === '/'} leftSection={<IconDashboard size={18} />} />
         <NavLink component={Link} to="/buckets" label="Buckets" active={loc.pathname.startsWith('/buckets')} leftSection={<IconBucket size={18} />} />
         <NavLink component={Link} to="/keys" label="Access Keys" active={loc.pathname.startsWith('/keys')} leftSection={<IconKey size={18} />} />
+        <NavLink component={Link} to="/cluster" label="Cluster" active={loc.pathname.startsWith('/cluster')} leftSection={<IconServer size={18} />} />
         <NavLink component={Link} to="/settings" label="Settings" active={loc.pathname === '/settings'} leftSection={<IconSettings size={18} />} />
       </MantineAppShell.Navbar>
       <MantineAppShell.Main>{children}</MantineAppShell.Main>
