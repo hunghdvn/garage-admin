@@ -33,6 +33,8 @@ func (s *Server) Routes() http.Handler {
 		s.mountAuth(r)
 		s.mountClusters(r)
 		s.mountCluster(r)
+		s.mountBuckets(r)
+		s.mountKeys(r)
 	})
 
 	if s.Static != nil {
