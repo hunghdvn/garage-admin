@@ -9,6 +9,7 @@ import '@mantine/notifications/styles.css'
 import { App } from './App'
 import { themes, loadThemeName } from './theme/themes'
 import { AuthProvider } from './auth/AuthContext'
+import { ClusterProvider } from './cluster/ClusterContext'
 
 const queryClient = new QueryClient()
 
@@ -19,7 +20,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <App />
+            <ClusterProvider>
+              <App />
+            </ClusterProvider>
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>

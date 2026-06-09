@@ -4,6 +4,10 @@ import { DashboardPage } from './pages/DashboardPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AppShell } from './components/AppShell'
 import { useAuth } from './auth/AuthContext'
+import { BucketsPage } from './pages/BucketsPage'
+import { BucketDetailPage } from './pages/BucketDetailPage'
+import { KeysPage } from './pages/KeysPage'
+import { KeyDetailPage } from './pages/KeyDetailPage'
 
 export function App() {
   const { user, loading } = useAuth()
@@ -21,6 +25,10 @@ export function App() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/buckets" element={<BucketsPage />} />
+        <Route path="/buckets/:id" element={<BucketDetailPage />} />
+        <Route path="/keys" element={<KeysPage />} />
+        <Route path="/keys/:id" element={<KeyDetailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
