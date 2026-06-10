@@ -183,3 +183,64 @@ export interface LayoutPreview {
   message: string[]
   newLayout: unknown
 }
+
+export interface AdminToken {
+  id: string | null
+  created: string | null
+  name: string
+  expiration: string | null
+  expired: boolean
+  scope: string[]
+  secretToken?: string
+}
+
+export interface MultiNode<T> {
+  success: Record<string, T>
+  error: Record<string, string>
+}
+
+export interface NodeInfoData {
+  nodeId: string
+  hostname: string
+  garageVersion: string
+  garageFeatures: string[]
+  rustVersion: string
+  dbEngine: string
+}
+
+export interface Worker {
+  id: number
+  name: string
+  state: string
+  errors: number
+  consecutiveErrors: number
+  lastError: unknown
+  tranquility: number | null
+  progress: string | null
+  queueLength: number
+  persistentErrors: unknown
+  freeform: string[]
+}
+
+// firstNode returns the value for the chosen node id, or the first success entry.
+export function firstNode<T>(resp: MultiNode<T> | undefined, nodeId?: string): T | undefined {
+  if (!resp) return undefined
+  if (nodeId && resp.success[nodeId]) return resp.success[nodeId]
+  const keys = Object.keys(resp.success || {})
+  return keys.length ? resp.success[keys[0]] : undefined
+}
+
+export interface FileEntry {
+  key: string
+  name: string
+  is_dir: boolean
+  size: number
+  last_modified: string
+}
+
+export interface AdminUser {
+  id: number
+  username: string
+  role: 'admin' | 'readonly'
+  created_at: string
+}

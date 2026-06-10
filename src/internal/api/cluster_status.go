@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/HungHD/garage-admin/internal/db"
 	"github.com/HungHD/garage-admin/internal/garage"
 )
+
+var errS3NotConfigured = errors.New("S3 credentials not configured for this cluster")
 
 func (s *Server) mountCluster(r chi.Router) {
 	r.Route("/cluster", func(r chi.Router) {
@@ -26,20 +29,20 @@ func (s *Server) mountCluster(r chi.Router) {
 	})
 }
 
-// garageClientForRequest builds a Garage client for the selected cluster.
-// Cluster is chosen by ?cluster=<id>, falling back to the default cluster.
-func (s *Server) garageClientForRequest(r *http.Request) (*garage.Client, error) {
-	var c *db.Cluster
-	var err error
+// clusterForRequest returns the cluster selected by ?cluster=, or the default.
+func (s *Server) clusterForRequest(r *http.Request) (*db.Cluster, error) {
 	if idStr := r.URL.Query().Get("cluster"); idStr != "" {
 		id, perr := strconv.ParseInt(idStr, 10, 64)
 		if perr != nil {
 			return nil, perr
 		}
-		c, err = s.DB.GetCluster(id)
-	} else {
-		c, err = s.DB.GetDefaultCluster()
+		return s.DB.GetCluster(id)
 	}
+	return s.DB.GetDefaultCluster()
+}
+
+func (s *Server) garageClientForRequest(r *http.Request) (*garage.Client, error) {
+	c, err := s.clusterForRequest(r)
 	if err != nil {
 		return nil, err
 	}

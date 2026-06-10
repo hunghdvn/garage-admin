@@ -88,7 +88,10 @@ export function BucketDetailPage() {
         <Anchor component={Link} to="/buckets">Buckets</Anchor>
         <Text>{bucket.globalAliases[0] ?? bucket.id.slice(0, 12)}</Text>
       </Breadcrumbs>
-      <Title order={3}>{bucket.globalAliases.join(', ') || bucket.id.slice(0, 16)}</Title>
+      <Group justify="space-between">
+        <Title order={3}>{bucket.globalAliases.join(', ') || bucket.id.slice(0, 16)}</Title>
+        <Button component={Link} to={`/files?bucket=${encodeURIComponent(bucket.globalAliases[0] ?? bucket.id)}`} variant="light">Duyệt file</Button>
+      </Group>
 
       <Grid>
         <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><Text size="sm" c="dimmed">Objects</Text><Text fw={700}>{bucket.objects}</Text></Card></Grid.Col>

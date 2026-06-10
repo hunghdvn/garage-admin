@@ -13,6 +13,7 @@ import (
 	"github.com/HungHD/garage-admin/internal/crypto"
 	"github.com/HungHD/garage-admin/internal/db"
 	"github.com/HungHD/garage-admin/internal/garage"
+	"github.com/HungHD/garage-admin/internal/s3"
 )
 
 // Server holds dependencies shared by handlers.
@@ -21,6 +22,8 @@ type Server struct {
 	Auth   *auth.Service
 	Cipher *crypto.Cipher
 	Static http.Handler // SPA fallback handler
+	// NewS3 builds an S3 client from cluster credentials. Injectable for tests.
+	NewS3 func(endpoint, region, accessKey, secretKey string) (s3.Client, error)
 }
 
 // Routes builds the chi router.
@@ -37,6 +40,10 @@ func (s *Server) Routes() http.Handler {
 		s.mountCluster(r)
 		s.mountBuckets(r)
 		s.mountKeys(r)
+		s.mountAdminTokens(r)
+		s.mountNodes(r)
+		s.mountFiles(r)
+		s.mountUsers(r)
 	})
 
 	if s.Static != nil {
