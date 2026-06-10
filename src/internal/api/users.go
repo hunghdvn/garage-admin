@@ -113,7 +113,11 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	updated, _ := s.DB.GetUserByID(id)
+	updated, gerr := s.DB.GetUserByID(id)
+	if gerr != nil {
+		writeError(w, http.StatusInternalServerError, "reload failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, userListView(updated))
 }
 
