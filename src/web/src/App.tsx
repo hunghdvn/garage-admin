@@ -11,6 +11,7 @@ import { KeyDetailPage } from './pages/KeyDetailPage'
 import { ClusterPage } from './pages/ClusterPage'
 import { AdminTokensPage } from './pages/AdminTokensPage'
 import { NodeMaintenancePage } from './pages/NodeMaintenancePage'
+import { FilesPage } from './pages/FilesPage'
 
 export function App() {
   const { user, loading } = useAuth()
@@ -35,6 +36,7 @@ export function App() {
         <Route path="/cluster" element={<ClusterPage />} />
         <Route path="/admin-tokens" element={<AdminTokensPage />} />
         <Route path="/nodes" element={<NodeMaintenancePage />} />
+        <Route path="/files" element={<FilesPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

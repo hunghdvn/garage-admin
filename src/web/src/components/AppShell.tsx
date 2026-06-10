@@ -1,6 +1,6 @@
 import { AppShell as MantineAppShell, Burger, Group, NavLink, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey, IconServer, IconLockAccess, IconTool } from '@tabler/icons-react'
+import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey, IconServer, IconLockAccess, IconTool, IconFiles } from '@tabler/icons-react'
 import { Link, useLocation } from 'react-router-dom'
 import { type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
@@ -34,6 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <MantineAppShell.Navbar p="md">
         <NavLink component={Link} to="/" label="Dashboard" active={loc.pathname === '/'} leftSection={<IconDashboard size={18} />} />
         <NavLink component={Link} to="/buckets" label="Buckets" active={loc.pathname.startsWith('/buckets')} leftSection={<IconBucket size={18} />} />
+        <NavLink component={Link} to="/files" label="Files" active={loc.pathname.startsWith('/files')} leftSection={<IconFiles size={18} />} />
         <NavLink component={Link} to="/keys" label="Access Keys" active={loc.pathname.startsWith('/keys')} leftSection={<IconKey size={18} />} />
         <NavLink component={Link} to="/cluster" label="Cluster" active={loc.pathname.startsWith('/cluster')} leftSection={<IconServer size={18} />} />
         <NavLink component={Link} to="/admin-tokens" label="Admin Tokens" active={loc.pathname.startsWith('/admin-tokens')} leftSection={<IconLockAccess size={18} />} />

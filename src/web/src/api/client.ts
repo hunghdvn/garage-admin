@@ -229,3 +229,11 @@ export function firstNode<T>(resp: MultiNode<T> | undefined, nodeId?: string): T
   const keys = Object.keys(resp.success || {})
   return keys.length ? resp.success[keys[0]] : undefined
 }
+
+export interface FileEntry {
+  key: string
+  name: string
+  is_dir: boolean
+  size: number
+  last_modified: string
+}
