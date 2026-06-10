@@ -13,6 +13,24 @@ import (
 	"github.com/HungHD/garage-admin/internal/s3"
 )
 
+// writeS3Error maps an S3 client error to an HTTP response: client errors (4xx,
+// e.g. 403 quota / 404 not found) keep their real status and message; anything
+// else (network failure, upstream 5xx) becomes 502 Bad Gateway.
+func writeS3Error(w http.ResponseWriter, err error) {
+	var ae *s3.APIError
+	if errors.As(err, &ae) {
+		if ae.StatusCode >= 400 && ae.StatusCode < 500 {
+			writeError(w, ae.StatusCode, ae.Error())
+			return
+		}
+		if ae.Message != "" {
+			writeError(w, http.StatusBadGateway, ae.Message)
+			return
+		}
+	}
+	writeError(w, http.StatusBadGateway, err.Error())
+}
+
 func (s *Server) mountFiles(r chi.Router) {
 	r.Route("/files", func(r chi.Router) {
 		r.Use(s.Auth.RequireAuth)
@@ -57,7 +75,7 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	entries, err := client.List(r.Context(), bucket, r.URL.Query().Get("prefix"))
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeS3Error(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, entries)
@@ -77,7 +95,7 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	obj, err := client.Get(r.Context(), bucket, key)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeS3Error(w, err)
 		return
 	}
 	defer obj.Body.Close()
@@ -107,7 +125,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	if err := client.Put(r.Context(), bucket, key, r.Body, r.ContentLength, r.Header.Get("Content-Type")); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeS3Error(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -127,7 +145,7 @@ func (s *Server) handleCreateFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := client.Put(r.Context(), bucket, key, strings.NewReader(""), 0, ""); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeS3Error(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -146,7 +164,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := client.Delete(r.Context(), bucket, key); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeS3Error(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

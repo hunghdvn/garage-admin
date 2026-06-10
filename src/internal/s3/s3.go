@@ -28,6 +28,38 @@ type Object struct {
 	Size        int64
 }
 
+// APIError carries the HTTP status and message of an S3 error so the API layer
+// can surface client errors (403 quota, 404 not found, ...) with the right status
+// instead of a blanket 502.
+type APIError struct {
+	StatusCode int
+	Code       string
+	Message    string
+}
+
+func (e *APIError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	return e.Code
+}
+
+// wrapErr converts a minio error into an *APIError when it carries an HTTP status.
+func wrapErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	resp := minio.ToErrorResponse(err)
+	if resp.StatusCode != 0 {
+		msg := resp.Message
+		if msg == "" {
+			msg = resp.Code
+		}
+		return &APIError{StatusCode: resp.StatusCode, Code: resp.Code, Message: msg}
+	}
+	return err
+}
+
 // Client is the S3 surface used by the API handlers (mockable in tests).
 type Client interface {
 	List(ctx context.Context, bucket, prefix string) ([]Entry, error)
@@ -85,7 +117,7 @@ func (c *minioClient) List(ctx context.Context, bucket, prefix string) ([]Entry,
 	out := []Entry{}
 	for obj := range c.mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: false}) {
 		if obj.Err != nil {
-			return nil, obj.Err
+			return nil, wrapErr(obj.Err)
 		}
 		if obj.Key == prefix {
 			continue // skip the folder marker object equal to the prefix itself
@@ -103,12 +135,12 @@ func (c *minioClient) List(ctx context.Context, bucket, prefix string) ([]Entry,
 func (c *minioClient) Get(ctx context.Context, bucket, key string) (*Object, error) {
 	obj, err := c.mc.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
 	if err != nil {
-		return nil, err
+		return nil, wrapErr(err)
 	}
 	info, err := obj.Stat()
 	if err != nil {
 		obj.Close()
-		return nil, err
+		return nil, wrapErr(err)
 	}
 	return &Object{Body: obj, ContentType: info.ContentType, Size: info.Size}, nil
 }
@@ -119,10 +151,10 @@ func (c *minioClient) Put(ctx context.Context, bucket, key string, r io.Reader, 
 		contentType = "application/octet-stream"
 	}
 	_, err := c.mc.PutObject(ctx, bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
-	return err
+	return wrapErr(err)
 }
 
 // Delete removes an object.
 func (c *minioClient) Delete(ctx context.Context, bucket, key string) error {
-	return c.mc.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+	return wrapErr(c.mc.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{}))
 }
