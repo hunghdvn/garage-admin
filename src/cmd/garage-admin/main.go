@@ -10,6 +10,7 @@ import (
 	"github.com/HungHD/garage-admin/internal/config"
 	"github.com/HungHD/garage-admin/internal/crypto"
 	"github.com/HungHD/garage-admin/internal/db"
+	"github.com/HungHD/garage-admin/internal/s3"
 	"github.com/HungHD/garage-admin/internal/web"
 )
 
@@ -45,6 +46,7 @@ func main() {
 		Auth:   authSvc,
 		Cipher: cipher,
 		Static: web.Handler(),
+		NewS3:  s3.New,
 	}
 
 	log.Printf("garage-admin listening on :%s", cfg.Port)
