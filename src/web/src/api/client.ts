@@ -237,3 +237,10 @@ export interface FileEntry {
   size: number
   last_modified: string
 }
+
+export interface AdminUser {
+  id: number
+  username: string
+  role: 'admin' | 'readonly'
+  created_at: string
+}

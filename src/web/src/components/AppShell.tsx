@@ -1,6 +1,6 @@
-import { AppShell as MantineAppShell, Burger, Group, NavLink, Title } from '@mantine/core'
+import { AppShell as MantineAppShell, Burger, Button, Group, Menu, NavLink, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey, IconServer, IconLockAccess, IconTool, IconFiles } from '@tabler/icons-react'
+import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey, IconServer, IconLockAccess, IconTool, IconFiles, IconUserCircle, IconUsers } from '@tabler/icons-react'
 import { Link, useLocation } from 'react-router-dom'
 import { type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
@@ -27,7 +27,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Group>
             <ClusterSelector />
             <ThemeSwitcher />
-            <NavLink label={`${user?.username} (${user?.role})`} leftSection={<IconLogout size={16} />} onClick={logout} w="auto" />
+            <Menu position="bottom-end" withArrow>
+              <Menu.Target>
+                <Button variant="subtle" leftSection={<IconUserCircle size={18} />}>{user?.username} ({user?.role})</Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item component={Link} to="/profile">Đổi mật khẩu</Menu.Item>
+                <Menu.Item color="red" leftSection={<IconLogout size={16} />} onClick={logout}>Đăng xuất</Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           </Group>
         </Group>
       </MantineAppShell.Header>
@@ -40,6 +48,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <NavLink component={Link} to="/admin-tokens" label="Admin Tokens" active={loc.pathname.startsWith('/admin-tokens')} leftSection={<IconLockAccess size={18} />} />
         <NavLink component={Link} to="/nodes" label="Node Maintenance" active={loc.pathname.startsWith('/nodes')} leftSection={<IconTool size={18} />} />
         <NavLink component={Link} to="/settings" label="Settings" active={loc.pathname === '/settings'} leftSection={<IconSettings size={18} />} />
+        {user?.role === 'admin' && (
+          <NavLink component={Link} to="/users" label="Users" active={loc.pathname.startsWith('/users')} leftSection={<IconUsers size={18} />} />
+        )}
       </MantineAppShell.Navbar>
       <MantineAppShell.Main>{children}</MantineAppShell.Main>
     </MantineAppShell>
