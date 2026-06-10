@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Cluster } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { confirmDelete } from '../lib/confirmDelete'
 
 interface FormState {
   name: string; admin_endpoint: string; admin_token: string
@@ -102,7 +103,7 @@ export function SettingsPage() {
                       <ActionIcon color="blue" variant="subtle" onClick={() => openEdit(c)} aria-label="edit">
                         <IconEdit size={16} />
                       </ActionIcon>
-                      <ActionIcon color="red" variant="subtle" onClick={() => deleteMut.mutate(c.id)} aria-label="delete">
+                      <ActionIcon color="red" variant="subtle" onClick={() => confirmDelete(c.name, () => deleteMut.mutate(c.id))} aria-label="delete">
                         <IconTrash size={16} />
                       </ActionIcon>
                     </Group>

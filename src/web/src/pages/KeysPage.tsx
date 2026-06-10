@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type KeyListItem, type KeyInfo } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { confirmDelete } from '../lib/confirmDelete'
 
 export function KeysPage() {
   const { user } = useAuth()
@@ -81,7 +82,7 @@ export function KeysPage() {
                 <Table.Td>{k.expired ? <Badge color="red">expired</Badge> : <Badge color="green">active</Badge>}</Table.Td>
                 <Table.Td>
                   {isAdmin && (
-                    <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => deleteMut.mutate(k.id)}>
+                    <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(k.name || k.id, () => deleteMut.mutate(k.id))}>
                       <IconTrash size={16} />
                     </ActionIcon>
                   )}

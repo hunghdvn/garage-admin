@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type BucketListItem } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { confirmDelete } from '../lib/confirmDelete'
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`
@@ -85,7 +86,7 @@ export function BucketsPage() {
                 <Table.Td>
                   {isAdmin && (
                     <ActionIcon color="red" variant="subtle" aria-label="delete"
-                      onClick={() => deleteMut.mutate(b.id)}>
+                      onClick={() => confirmDelete(b.globalAliases[0] ?? b.id, () => deleteMut.mutate(b.id))}>
                       <IconTrash size={16} />
                     </ActionIcon>
                   )}

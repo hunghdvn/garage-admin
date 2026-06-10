@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type AdminUser } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { confirmDelete } from '../lib/confirmDelete'
 
 export function UsersPage() {
   const { user: me } = useAuth()
@@ -72,7 +73,7 @@ export function UsersPage() {
                 <Table.Td>
                   <Group gap={4} justify="flex-end">
                     <ActionIcon variant="subtle" aria-label="reset password" onClick={() => setResetFor(u)}><IconKey size={16} /></ActionIcon>
-                    <ActionIcon color="red" variant="subtle" aria-label="delete" disabled={u.id === me?.id} onClick={() => deleteMut.mutate(u.id)}><IconTrash size={16} /></ActionIcon>
+                    <ActionIcon color="red" variant="subtle" aria-label="delete" disabled={u.id === me?.id} onClick={() => confirmDelete(u.username, () => deleteMut.mutate(u.id))}><IconTrash size={16} /></ActionIcon>
                   </Group>
                 </Table.Td>
               </Table.Tr>

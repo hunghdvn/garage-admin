@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { MantineProvider } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
+import { ModalsProvider } from '@mantine/modals'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import '@mantine/core/styles.css'
@@ -16,6 +17,7 @@ const queryClient = new QueryClient()
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <MantineProvider theme={themes[loadThemeName()]} defaultColorScheme="auto">
+      <ModalsProvider>
       <Notifications />
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
@@ -26,6 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
+      </ModalsProvider>
     </MantineProvider>
   </React.StrictMode>,
 )

@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type AdminToken } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { confirmDelete } from '../lib/confirmDelete'
 
 export function AdminTokensPage() {
   const { user } = useAuth()
@@ -80,7 +81,7 @@ export function AdminTokensPage() {
                   {isAdmin && t.id !== null && (
                     <Group gap={4}>
                       <ActionIcon variant="subtle" aria-label="edit" onClick={() => openEdit(t)}><IconEdit size={16} /></ActionIcon>
-                      <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => deleteMut.mutate(t.id!)}>
+                      <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(t.name, () => deleteMut.mutate(t.id!))}>
                         <IconTrash size={16} />
                       </ActionIcon>
                     </Group>

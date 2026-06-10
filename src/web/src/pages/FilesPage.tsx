@@ -10,6 +10,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api, type BucketListItem, type FileEntry } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from './BucketsPage'
+import { confirmDelete } from '../lib/confirmDelete'
 
 export function FilesPage() {
   const { user } = useAuth()
@@ -152,7 +153,7 @@ export function FilesPage() {
                             <ActionIcon variant="subtle" aria-label="download" onClick={() => download(entry)}><IconDownload size={16} /></ActionIcon>
                           )}
                           {isAdmin && !entry.is_dir && (
-                            <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => remove(entry)}><IconTrash size={16} /></ActionIcon>
+                            <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(entry.name, () => remove(entry))}><IconTrash size={16} /></ActionIcon>
                           )}
                         </Group>
                       </Table.Td>
