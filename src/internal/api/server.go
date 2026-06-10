@@ -37,6 +37,7 @@ func (s *Server) Routes() http.Handler {
 		s.mountCluster(r)
 		s.mountBuckets(r)
 		s.mountKeys(r)
+		s.mountAdminTokens(r)
 	})
 
 	if s.Static != nil {
