@@ -1,8 +1,11 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -34,6 +37,9 @@ func (s *Server) s3ClientForRequest(r *http.Request) (s3.Client, error) {
 	secret, err := s.Cipher.Decrypt(c.S3SecretKeyEnc)
 	if err != nil {
 		return nil, err
+	}
+	if s.NewS3 == nil {
+		return nil, errors.New("s3 factory not configured")
 	}
 	return s.NewS3(c.S3Endpoint, c.S3Region, c.S3AccessKey, secret)
 }
@@ -82,7 +88,8 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	if obj.ContentType != "" {
 		w.Header().Set("Content-Type", obj.ContentType)
 	}
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+name+"\"")
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf("attachment; filename=%q; filename*=UTF-8''%s", name, url.PathEscape(name)))
 	io.Copy(w, obj.Body)
 }
 
