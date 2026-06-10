@@ -22,8 +22,8 @@ type AdminTokenInfo struct {
 type AdminTokenRequest struct {
 	Name         string   `json:"name"`
 	Scope        []string `json:"scope"`
-	Expiration   *string  `json:"expiration"`
-	NeverExpires bool     `json:"neverExpires"`
+	Expiration   *string  `json:"expiration,omitempty"`
+	NeverExpires *bool    `json:"neverExpires,omitempty"`
 }
 
 // ListAdminTokens calls GET /v2/ListAdminTokens.

@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { api, type BucketInfo } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { confirmDelete } from '../lib/confirmDelete'
 import { fmtBytes } from './BucketsPage'
 
 export function BucketDetailPage() {
@@ -131,7 +132,7 @@ export function BucketDetailPage() {
         <Group>
           {bucket.globalAliases.map((a) => (
             <Badge key={a} rightSection={isAdmin && bucket.globalAliases.length > 1 ?
-              <Text style={{ cursor: 'pointer' }} onClick={() => removeAliasMut.mutate(a)}>×</Text> : null}>{a}</Badge>
+              <Text style={{ cursor: 'pointer' }} onClick={() => confirmDelete(`alias "${a}"`, () => removeAliasMut.mutate(a))}>×</Text> : null}>{a}</Badge>
           ))}
         </Group>
         {isAdmin && (

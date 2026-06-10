@@ -47,38 +47,24 @@ func (s *Server) handleCurrentAdminToken(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, info)
 }
 
-// adminTokenReqFromBody parses a create/update request body. NOTE: NeverExpires
-// is derived as (expiration == nil), which is correct for CreateAdminToken but
-// NOT for UpdateAdminToken — on update, omitting expiration would clear an
-// existing one. The update endpoint currently has no UI. Before wiring an edit
-// UI, change this so update only sends neverExpires/expiration when the client
-// explicitly provides them (e.g. add an explicit neverExpires field to the body).
-func (s *Server) adminTokenReqFromBody(r *http.Request) (garage.AdminTokenRequest, error) {
+func (s *Server) handleCreateAdminToken(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name       string   `json:"name"`
 		Scope      []string `json:"scope"`
 		Expiration *string  `json:"expiration"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
-		return garage.AdminTokenRequest{}, err
+	if err := decodeJSON(r, &body); err != nil || body.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
 	}
 	scope := body.Scope
 	if scope == nil {
 		scope = []string{}
 	}
-	return garage.AdminTokenRequest{
-		Name:         body.Name,
-		Scope:        scope,
-		Expiration:   body.Expiration,
-		NeverExpires: body.Expiration == nil,
-	}, nil
-}
-
-func (s *Server) handleCreateAdminToken(w http.ResponseWriter, r *http.Request) {
-	req, err := s.adminTokenReqFromBody(r)
-	if err != nil || req.Name == "" {
-		writeError(w, http.StatusBadRequest, "name is required")
-		return
+	req := garage.AdminTokenRequest{Name: body.Name, Scope: scope, Expiration: body.Expiration}
+	if body.Expiration == nil {
+		t := true
+		req.NeverExpires = &t
 	}
 	client, err := s.garageClientForRequest(r)
 	if err != nil {
@@ -94,11 +80,21 @@ func (s *Server) handleCreateAdminToken(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleUpdateAdminToken(w http.ResponseWriter, r *http.Request) {
-	req, err := s.adminTokenReqFromBody(r)
-	if err != nil {
+	var body struct {
+		Name         string   `json:"name"`
+		Scope        []string `json:"scope"`
+		Expiration   *string  `json:"expiration"`
+		NeverExpires *bool    `json:"never_expires"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	scope := body.Scope
+	if scope == nil {
+		scope = []string{}
+	}
+	req := garage.AdminTokenRequest{Name: body.Name, Scope: scope, Expiration: body.Expiration, NeverExpires: body.NeverExpires}
 	client, err := s.garageClientForRequest(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "no cluster configured")

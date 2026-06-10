@@ -56,7 +56,8 @@ func TestCreateAdminTokenReturnsSecret(t *testing.T) {
 		w.Write([]byte(`{"id":"tok9","created":"x","name":"app","expiration":null,"expired":false,"scope":["*"],"secretToken":"SECRET-TOKEN-ONCE"}`))
 	}))
 	defer srv.Close()
-	got, err := New(srv.URL, "t").CreateAdminToken(AdminTokenRequest{Name: "app", Scope: []string{"*"}, NeverExpires: true})
+	nev := true
+	got, err := New(srv.URL, "t").CreateAdminToken(AdminTokenRequest{Name: "app", Scope: []string{"*"}, NeverExpires: &nev})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,8 @@ func TestUpdateAndDeleteAdminToken(t *testing.T) {
 	defer srv.Close()
 	c := New(srv.URL, "t")
 	name := "renamed"
-	if _, err := c.UpdateAdminToken("tok1", AdminTokenRequest{Name: name, Scope: []string{"*"}, NeverExpires: true}); err != nil {
+	nev := true
+	if _, err := c.UpdateAdminToken("tok1", AdminTokenRequest{Name: name, Scope: []string{"*"}, NeverExpires: &nev}); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.DeleteAdminToken("tok1"); err != nil {
