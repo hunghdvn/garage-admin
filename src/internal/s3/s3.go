@@ -66,6 +66,13 @@ type Client interface {
 	Get(ctx context.Context, bucket, key string) (*Object, error)
 	Put(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string) error
 	Delete(ctx context.Context, bucket, key string) error
+	// Move renames a single object (copy then delete the source).
+	Move(ctx context.Context, bucket, srcKey, dstKey string) error
+	// DeletePrefix removes every object under prefix (recursive folder delete).
+	DeletePrefix(ctx context.Context, bucket, prefix string) error
+	// MovePrefix renames a folder: copies every object from srcPrefix to dstPrefix
+	// then deletes the originals. Both prefixes end with "/".
+	MovePrefix(ctx context.Context, bucket, srcPrefix, dstPrefix string) error
 }
 
 type minioClient struct{ mc *minio.Client }
@@ -157,4 +164,56 @@ func (c *minioClient) Put(ctx context.Context, bucket, key string, r io.Reader, 
 // Delete removes an object.
 func (c *minioClient) Delete(ctx context.Context, bucket, key string) error {
 	return wrapErr(c.mc.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{}))
+}
+
+// Move renames a single object: copy to the new key, then delete the source.
+func (c *minioClient) Move(ctx context.Context, bucket, srcKey, dstKey string) error {
+	_, err := c.mc.CopyObject(ctx,
+		minio.CopyDestOptions{Bucket: bucket, Object: dstKey},
+		minio.CopySrcOptions{Bucket: bucket, Object: srcKey})
+	if err != nil {
+		return wrapErr(err)
+	}
+	return wrapErr(c.mc.RemoveObject(ctx, bucket, srcKey, minio.RemoveObjectOptions{}))
+}
+
+// DeletePrefix removes every object under prefix (recursive folder delete).
+func (c *minioClient) DeletePrefix(ctx context.Context, bucket, prefix string) error {
+	objCh := make(chan minio.ObjectInfo)
+	go func() {
+		defer close(objCh)
+		for o := range c.mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+			if o.Err == nil {
+				objCh <- o
+			}
+		}
+	}()
+	for e := range c.mc.RemoveObjects(ctx, bucket, objCh, minio.RemoveObjectsOptions{}) {
+		if e.Err != nil {
+			return wrapErr(e.Err)
+		}
+	}
+	// Best-effort removal of the folder marker object itself.
+	c.mc.RemoveObject(ctx, bucket, prefix, minio.RemoveObjectOptions{})
+	return nil
+}
+
+// MovePrefix renames a folder by copying every object from srcPrefix to dstPrefix
+// (preserving relative keys) and deleting the originals.
+func (c *minioClient) MovePrefix(ctx context.Context, bucket, srcPrefix, dstPrefix string) error {
+	for o := range c.mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: srcPrefix, Recursive: true}) {
+		if o.Err != nil {
+			return wrapErr(o.Err)
+		}
+		dst := dstPrefix + strings.TrimPrefix(o.Key, srcPrefix)
+		if _, err := c.mc.CopyObject(ctx,
+			minio.CopyDestOptions{Bucket: bucket, Object: dst},
+			minio.CopySrcOptions{Bucket: bucket, Object: o.Key}); err != nil {
+			return wrapErr(err)
+		}
+		if err := c.mc.RemoveObject(ctx, bucket, o.Key, minio.RemoveObjectOptions{}); err != nil {
+			return wrapErr(err)
+		}
+	}
+	return nil
 }

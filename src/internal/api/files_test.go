@@ -17,11 +17,16 @@ import (
 
 // fakeS3 implements s3.Client for handler tests.
 type fakeS3 struct {
-	entries  []s3.Entry
-	putKey   string
-	putBody  string
-	delKey   string
-	getBody  string
+	entries     []s3.Entry
+	putKey      string
+	putBody     string
+	delKey      string
+	delPrefix   string
+	getBody     string
+	moveSrc     string
+	moveDst     string
+	movePfxSrc  string
+	movePfxDst  string
 }
 
 func (f *fakeS3) List(_ context.Context, _, _ string) ([]s3.Entry, error) { return f.entries, nil }
@@ -34,6 +39,18 @@ func (f *fakeS3) Put(_ context.Context, _, key string, r io.Reader, _ int64, _ s
 	return nil
 }
 func (f *fakeS3) Delete(_ context.Context, _, key string) error { f.delKey = key; return nil }
+func (f *fakeS3) Move(_ context.Context, _, src, dst string) error {
+	f.moveSrc, f.moveDst = src, dst
+	return nil
+}
+func (f *fakeS3) DeletePrefix(_ context.Context, _, prefix string) error {
+	f.delPrefix = prefix
+	return nil
+}
+func (f *fakeS3) MovePrefix(_ context.Context, _, src, dst string) error {
+	f.movePfxSrc, f.movePfxDst = src, dst
+	return nil
+}
 
 func newFilesAPI(t *testing.T, role string, fake *fakeS3) (http.Handler, *http.Cookie) {
 	t.Helper()
@@ -142,5 +159,41 @@ func TestCreateFolderAsAdmin(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || fake.putKey != "newdir/" {
 		t.Fatalf("code=%d putKey=%q (want newdir/)", rec.Code, fake.putKey)
+	}
+}
+
+func TestRenameFileMovesObject(t *testing.T) {
+	fake := &fakeS3{}
+	r, cookie := newFilesAPI(t, "admin", fake)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/files/rename?bucket=b", strings.NewReader(`{"src":"a/old.txt","dst":"a/new.txt"}`))
+	req.AddCookie(cookie)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || fake.moveSrc != "a/old.txt" || fake.moveDst != "a/new.txt" {
+		t.Fatalf("code=%d src=%q dst=%q", rec.Code, fake.moveSrc, fake.moveDst)
+	}
+}
+
+func TestRenameFolderMovesPrefix(t *testing.T) {
+	fake := &fakeS3{}
+	r, cookie := newFilesAPI(t, "admin", fake)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/files/rename?bucket=b", strings.NewReader(`{"src":"docs/","dst":"papers"}`))
+	req.AddCookie(cookie)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || fake.movePfxSrc != "docs/" || fake.movePfxDst != "papers/" {
+		t.Fatalf("code=%d src=%q dst=%q", rec.Code, fake.movePfxSrc, fake.movePfxDst)
+	}
+}
+
+func TestDeleteFolderRecursive(t *testing.T) {
+	fake := &fakeS3{}
+	r, cookie := newFilesAPI(t, "admin", fake)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/files?bucket=b&key=docs/", nil)
+	req.AddCookie(cookie)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || fake.delPrefix != "docs/" || fake.delKey != "" {
+		t.Fatalf("code=%d delPrefix=%q delKey=%q", rec.Code, fake.delPrefix, fake.delKey)
 	}
 }

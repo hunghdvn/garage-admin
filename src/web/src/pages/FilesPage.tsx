@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ActionIcon, Anchor, Breadcrumbs, Button, Card, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Title,
 } from '@mantine/core'
-import { IconFolderPlus, IconUpload, IconTrash, IconDownload, IconFolder, IconFile } from '@tabler/icons-react'
+import { IconFolderPlus, IconUpload, IconTrash, IconDownload, IconFolder, IconFile, IconEdit } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -23,6 +23,8 @@ export function FilesPage() {
   const [folderOpen, folderCtl] = useDisclosure(false)
   const [folderName, setFolderName] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [renameEntry, setRenameEntry] = useState<FileEntry | null>(null)
+  const [renameName, setRenameName] = useState('')
 
   const buckets = useQuery({ queryKey: ['buckets'], queryFn: async () => (await api.get<BucketListItem[]>('/buckets')).data })
 
@@ -82,6 +84,25 @@ export function FilesPage() {
       refresh()
     } catch (err: any) {
       notifications.show({ color: 'red', message: err?.response?.data?.error || 'Xóa thất bại' })
+    }
+  }
+
+  function openRename(entry: FileEntry) {
+    setRenameEntry(entry)
+    setRenameName(entry.name)
+  }
+
+  async function submitRename() {
+    if (!renameEntry) return
+    const isDir = renameEntry.is_dir
+    // dst keeps the current prefix, swaps the last segment for the new name.
+    const dst = prefix + renameName + (isDir ? '/' : '')
+    try {
+      await api.post('/files/rename', { src: renameEntry.key, dst }, { params: { bucket } })
+      setRenameEntry(null)
+      refresh()
+    } catch (err: any) {
+      notifications.show({ color: 'red', message: err?.response?.data?.error || 'Đổi tên thất bại' })
     }
   }
 
@@ -156,8 +177,14 @@ export function FilesPage() {
                           {!entry.is_dir && (
                             <ActionIcon variant="subtle" aria-label="download" onClick={() => download(entry)}><IconDownload size={16} /></ActionIcon>
                           )}
-                          {isAdmin && !entry.is_dir && (
-                            <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(entry.name, () => remove(entry))}><IconTrash size={16} /></ActionIcon>
+                          {isAdmin && (
+                            <ActionIcon variant="subtle" aria-label="rename" onClick={() => openRename(entry)}><IconEdit size={16} /></ActionIcon>
+                          )}
+                          {isAdmin && (
+                            <ActionIcon color="red" variant="subtle" aria-label="delete"
+                              onClick={() => confirmDelete(entry.is_dir ? `thư mục "${entry.name}" (và toàn bộ bên trong)` : entry.name, () => remove(entry))}>
+                              <IconTrash size={16} />
+                            </ActionIcon>
                           )}
                         </Group>
                       </Table.Td>
@@ -174,6 +201,14 @@ export function FilesPage() {
         <Stack>
           <TextInput label="Tên thư mục" value={folderName} onChange={(e) => setFolderName(e.currentTarget.value)} />
           <Button onClick={createFolder} disabled={!folderName}>Tạo</Button>
+        </Stack>
+      </Modal>
+
+      <Modal opened={renameEntry !== null} onClose={() => setRenameEntry(null)} title={renameEntry?.is_dir ? 'Đổi tên thư mục' : 'Đổi tên file'}>
+        <Stack>
+          <TextInput label="Tên mới" value={renameName} onChange={(e) => setRenameName(e.currentTarget.value)} />
+          {renameEntry?.is_dir && <Text size="xs" c="dimmed">Đổi tên thư mục sẽ di chuyển toàn bộ nội dung bên trong.</Text>}
+          <Button onClick={submitRename} disabled={!renameName || renameName === renameEntry?.name}>Lưu</Button>
         </Stack>
       </Modal>
     </Stack>

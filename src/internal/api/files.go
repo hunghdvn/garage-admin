@@ -38,6 +38,7 @@ func (s *Server) mountFiles(r chi.Router) {
 		r.Get("/download", s.handleDownloadFile)
 		r.With(s.Auth.RequireAdmin).Post("/upload", s.handleUploadFile)
 		r.With(s.Auth.RequireAdmin).Post("/folder", s.handleCreateFolder)
+		r.With(s.Auth.RequireAdmin).Post("/rename", s.handleRenameFile)
 		r.With(s.Auth.RequireAdmin).Delete("/", s.handleDeleteFile)
 	})
 }
@@ -163,7 +164,46 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := client.Delete(r.Context(), bucket, key); err != nil {
+	// A key ending in "/" is a folder: delete it (and everything under it) recursively.
+	if strings.HasSuffix(key, "/") {
+		err = client.DeletePrefix(r.Context(), bucket, key)
+	} else {
+		err = client.Delete(r.Context(), bucket, key)
+	}
+	if err != nil {
+		writeS3Error(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
+	bucket := r.URL.Query().Get("bucket")
+	var body struct {
+		Src string `json:"src"`
+		Dst string `json:"dst"`
+	}
+	if err := decodeJSON(r, &body); err != nil || bucket == "" || body.Src == "" || body.Dst == "" {
+		writeError(w, http.StatusBadRequest, "bucket, src and dst are required")
+		return
+	}
+	if body.Src == body.Dst {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		return
+	}
+	client, err := s.s3ClientForRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	// Folder rename (both keys end with "/") moves every object under the prefix.
+	if strings.HasSuffix(body.Src, "/") {
+		dst := strings.TrimSuffix(body.Dst, "/") + "/"
+		err = client.MovePrefix(r.Context(), bucket, body.Src, dst)
+	} else {
+		err = client.Move(r.Context(), bucket, body.Src, body.Dst)
+	}
+	if err != nil {
 		writeS3Error(w, err)
 		return
 	}
