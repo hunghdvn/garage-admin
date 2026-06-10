@@ -2,6 +2,7 @@ package garage
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 )
@@ -54,6 +55,7 @@ type BucketInfo struct {
 	UnfinishedUploads          int64           `json:"unfinishedUploads"`
 	UnfinishedMultipartUploads int64           `json:"unfinishedMultipartUploads"`
 	Quotas                     Quotas          `json:"quotas"`
+	CorsRules json.RawMessage `json:"corsRules,omitempty"`
 }
 
 // WebsiteAccessUpdate configures static website hosting on UpdateBucket.
@@ -67,6 +69,7 @@ type WebsiteAccessUpdate struct {
 type UpdateBucketRequest struct {
 	WebsiteAccess *WebsiteAccessUpdate `json:"websiteAccess,omitempty"`
 	Quotas        *Quotas              `json:"quotas,omitempty"`
+	CorsRules     *json.RawMessage     `json:"corsRules,omitempty"`
 }
 
 // ListBuckets calls GET /v2/ListBuckets.
@@ -125,4 +128,32 @@ func (c *Client) AllowBucketKey(bucketID, accessKeyID string, perms Permissions)
 func (c *Client) DenyBucketKey(bucketID, accessKeyID string, perms Permissions) error {
 	body := map[string]any{"bucketId": bucketID, "accessKeyId": accessKeyID, "permissions": perms}
 	return c.do(context.Background(), http.MethodPost, "/v2/DenyBucketKey", body, nil)
+}
+
+// CleanupIncompleteUploads removes incomplete multipart uploads older than olderThanSecs.
+func (c *Client) CleanupIncompleteUploads(bucketID string, olderThanSecs int64) (json.RawMessage, error) {
+	body := map[string]any{"bucketId": bucketID, "olderThanSecs": olderThanSecs}
+	var out json.RawMessage
+	err := c.do(context.Background(), http.MethodPost, "/v2/CleanupIncompleteUploads", body, &out)
+	return out, err
+}
+
+// InspectObject returns internal details for an object. GET /v2/InspectObject?bucketId=&key=
+func (c *Client) InspectObject(bucketID, key string) (json.RawMessage, error) {
+	path := "/v2/InspectObject?bucketId=" + url.QueryEscape(bucketID) + "&key=" + url.QueryEscape(key)
+	var out json.RawMessage
+	err := c.do(context.Background(), http.MethodGet, path, nil, &out)
+	return out, err
+}
+
+// AddBucketAliasLocal adds a local (key-scoped) alias.
+func (c *Client) AddBucketAliasLocal(bucketID, localAlias, accessKeyID string) error {
+	body := map[string]string{"bucketId": bucketID, "localAlias": localAlias, "accessKeyId": accessKeyID}
+	return c.do(context.Background(), http.MethodPost, "/v2/AddBucketAlias", body, nil)
+}
+
+// RemoveBucketAliasLocal removes a local alias.
+func (c *Client) RemoveBucketAliasLocal(bucketID, localAlias, accessKeyID string) error {
+	body := map[string]string{"bucketId": bucketID, "localAlias": localAlias, "accessKeyId": accessKeyID}
+	return c.do(context.Background(), http.MethodPost, "/v2/RemoveBucketAlias", body, nil)
 }
