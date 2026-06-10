@@ -38,6 +38,7 @@ func (s *Server) Routes() http.Handler {
 		s.mountBuckets(r)
 		s.mountKeys(r)
 		s.mountAdminTokens(r)
+		s.mountNodes(r)
 	})
 
 	if s.Static != nil {
