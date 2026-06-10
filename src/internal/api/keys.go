@@ -60,7 +60,8 @@ func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name string `json:"name"`
+		Name       string  `json:"name"`
+		Expiration *string `json:"expiration"`
 	}
 	if err := decodeJSON(r, &body); err != nil || body.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
@@ -71,7 +72,8 @@ func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "no cluster configured")
 		return
 	}
-	info, err := client.CreateKey(body.Name)
+	req := garage.KeyCreateRequest{Name: body.Name, Expiration: body.Expiration, NeverExpires: body.Expiration == nil}
+	info, err := client.CreateKey(req)
 	if err != nil {
 		writeGarageError(w, err)
 		return
@@ -106,6 +108,8 @@ func (s *Server) handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name         *string `json:"name"`
 		CreateBucket *bool   `json:"create_bucket"`
+		Expiration   *string `json:"expiration"`
+		NeverExpires *bool   `json:"never_expires"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
@@ -124,6 +128,12 @@ func (s *Server) handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		} else {
 			req.Deny = &garage.KeyPermissions{CreateBucket: true}
 		}
+	}
+	if body.Expiration != nil {
+		req.Expiration = body.Expiration
+	}
+	if body.NeverExpires != nil {
+		req.NeverExpires = *body.NeverExpires
 	}
 	info, err := client.UpdateKey(chi.URLParam(r, "id"), req)
 	if err != nil {
