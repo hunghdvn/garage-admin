@@ -6,7 +6,7 @@ import {
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { api, type BucketInfo } from '../api/client'
+import { api, type BucketInfo, type KeyListItem } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
 import { fmtBytes } from './BucketsPage'
@@ -21,6 +21,13 @@ export function BucketDetailPage() {
     queryKey: ['bucket', id],
     queryFn: async () => (await api.get<BucketInfo>(`/buckets/${id}`)).data,
   })
+
+  // All access keys, used to grant a key that has no permission on this bucket yet.
+  const { data: allKeys } = useQuery({
+    queryKey: ['keys'],
+    queryFn: async () => (await api.get<KeyListItem[]>('/keys')).data,
+  })
+  const [grantKey, setGrantKey] = useState<string | null>(null)
 
   const [websiteEnabled, setWebsiteEnabled] = useState(false)
   const [indexDoc, setIndexDoc] = useState('index.html')
@@ -219,6 +226,34 @@ export function BucketDetailPage() {
           </Table.Tbody>
         </Table>
         <Text size="xs" c="dimmed" mt="xs">Tick để cấp, bỏ tick để thu hồi từng quyền.</Text>
+        {isAdmin && (() => {
+          const granted = new Set(bucket.keys.map((k) => k.accessKeyId))
+          const candidates = (allKeys ?? []).filter((k) => !granted.has(k.id))
+          return (
+            <Group mt="md" align="end">
+              <Select
+                label="Cấp quyền cho key khác"
+                placeholder="chọn access key"
+                w={300}
+                searchable
+                data={candidates.map((k) => ({ value: k.id, label: `${k.name || '(no name)'} — ${k.id}` }))}
+                value={grantKey}
+                onChange={setGrantKey}
+                nothingFoundMessage="Tất cả key đã có quyền"
+              />
+              <Button
+                variant="light"
+                disabled={!grantKey}
+                onClick={() => {
+                  permMut.mutate({ access_key_id: grantKey!, read: true, write: true, owner: false, deny: false })
+                  setGrantKey(null)
+                }}
+              >
+                Cấp read+write
+              </Button>
+            </Group>
+          )
+        })()}
       </Card>
     </Stack>
   )
