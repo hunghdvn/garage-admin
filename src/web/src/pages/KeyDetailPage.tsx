@@ -21,10 +21,12 @@ export function KeyDetailPage() {
 
   const [name, setName] = useState('')
   const [createBucket, setCreateBucket] = useState(false)
+  const [expiry, setExpiry] = useState('')
   useEffect(() => {
     if (key) {
       setName(key.name)
       setCreateBucket(key.permissions.createBucket)
+      setExpiry(key.expiration ? key.expiration.slice(0, 16) : '')
     }
   }, [key])
 
@@ -58,6 +60,11 @@ export function KeyDetailPage() {
           </Group>
           <Switch label="Cho phép tạo bucket (createBucket)" checked={createBucket} disabled={!isAdmin}
             onChange={(e) => { setCreateBucket(e.currentTarget.checked); updateMut.mutate({ create_bucket: e.currentTarget.checked }) }} />
+          <Group align="end">
+            <TextInput label="Hết hạn" type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.currentTarget.value)} disabled={!isAdmin} />
+            {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ expiration: new Date(expiry).toISOString() })} disabled={!expiry}>Đặt hạn</Button>}
+            {isAdmin && <Button variant="subtle" onClick={() => updateMut.mutate({ never_expires: true })}>Bỏ hạn</Button>}
+          </Group>
         </Stack>
       </Card>
 

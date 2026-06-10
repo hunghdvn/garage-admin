@@ -17,6 +17,7 @@ export function KeysPage() {
   const [createOpened, createCtl] = useDisclosure(false)
   const [importOpened, importCtl] = useDisclosure(false)
   const [name, setName] = useState('')
+  const [expiration, setExpiration] = useState('')
   const [impId, setImpId] = useState('')
   const [impSecret, setImpSecret] = useState('')
   const [impName, setImpName] = useState('')
@@ -28,11 +29,12 @@ export function KeysPage() {
   })
 
   const createMut = useMutation({
-    mutationFn: async (n: string) => (await api.post<KeyInfo>('/keys', { name: n })).data,
+    mutationFn: async (n: string) => (await api.post<KeyInfo>('/keys', { name: n, expiration: expiration ? new Date(expiration).toISOString() : null })).data,
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['keys'] })
       createCtl.close()
       setName('')
+      setExpiration('')
       setCreatedSecret(data) // show the secret once
     },
     onError: () => notifications.show({ color: 'red', message: 'Tạo key thất bại' }),
@@ -93,6 +95,7 @@ export function KeysPage() {
       <Modal opened={createOpened} onClose={createCtl.close} title="Tạo access key">
         <Stack>
           <TextInput label="Tên key" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
+          <TextInput label="Hết hạn (trống = không hết hạn)" type="datetime-local" value={expiration} onChange={(e) => setExpiration(e.currentTarget.value)} />
           <Button onClick={() => createMut.mutate(name)} loading={createMut.isPending} disabled={!name}>Tạo</Button>
         </Stack>
       </Modal>

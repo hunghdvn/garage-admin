@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  Anchor, Badge, Button, Card, Checkbox, Grid, Group, NumberInput, Stack,
-  Switch, Table, Text, TextInput, Title, Breadcrumbs, Loader,
+  Anchor, Badge, Button, Card, Checkbox, Grid, Group, NumberInput, Select, Stack,
+  Switch, Table, Text, Textarea, TextInput, Title, Breadcrumbs, Loader,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -27,6 +27,9 @@ export function BucketDetailPage() {
   const [maxSize, setMaxSize] = useState<number | ''>('')
   const [maxObjects, setMaxObjects] = useState<number | ''>('')
   const [newAlias, setNewAlias] = useState('')
+  const [localAlias, setLocalAlias] = useState('')
+  const [localKey, setLocalKey] = useState<string | null>(null)
+  const [corsText, setCorsText] = useState('')
 
   useEffect(() => {
     if (bucket) {
@@ -36,6 +39,10 @@ export function BucketDetailPage() {
       setMaxSize(bucket.quotas.maxSize ?? '')
       setMaxObjects(bucket.quotas.maxObjects ?? '')
     }
+  }, [bucket])
+
+  useEffect(() => {
+    if (bucket) setCorsText(JSON.stringify((bucket as any).corsRules ?? [], null, 2))
   }, [bucket])
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['bucket', id] })
@@ -64,6 +71,25 @@ export function BucketDetailPage() {
       (await api.post(`/buckets/${id}/permissions`, p)).data,
     onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã đổi quyền' }) },
     onError: () => notifications.show({ color: 'red', message: 'Đổi quyền thất bại' }),
+  })
+
+  const localAliasMut = useMutation({
+    mutationFn: async () => (await api.post(`/buckets/${id}/aliases`, { alias: localAlias, local: true, access_key_id: localKey })).data,
+    onSuccess: () => { refresh(); setLocalAlias(''); setLocalKey(null); notifications.show({ color: 'green', message: 'Đã thêm local alias' }) },
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Thêm local alias thất bại' }),
+  })
+  const corsMut = useMutation({
+    mutationFn: async () => {
+      const rules = JSON.parse(corsText || '[]')
+      return (await api.post(`/buckets/${id}`, { cors_rules: rules })).data
+    },
+    onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã lưu CORS' }) },
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Lưu CORS thất bại (kiểm tra JSON)' }),
+  })
+  const cleanupMut = useMutation({
+    mutationFn: async () => (await api.post(`/buckets/${id}/cleanup-uploads`, { older_than_secs: 86400 })).data,
+    onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã dọn multipart upload dở (>24h)' }) },
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Dọn thất bại' }),
   })
 
   if (isLoading || !bucket) return <Loader />
@@ -114,6 +140,13 @@ export function BucketDetailPage() {
             <Button variant="light" onClick={() => aliasMut.mutate(newAlias)} disabled={!newAlias}>Thêm alias</Button>
           </Group>
         )}
+        {isAdmin && (
+          <Group mt="sm">
+            <TextInput placeholder="local alias" value={localAlias} onChange={(e) => setLocalAlias(e.currentTarget.value)} />
+            <Select placeholder="key" w={220} data={bucket.keys.map((k) => ({ value: k.accessKeyId, label: k.name || k.accessKeyId }))} value={localKey} onChange={setLocalKey} />
+            <Button variant="light" onClick={() => localAliasMut.mutate()} disabled={!localAlias || !localKey}>Thêm local alias</Button>
+          </Group>
+        )}
       </Card>
 
       <Card withBorder>
@@ -139,6 +172,18 @@ export function BucketDetailPage() {
           {isAdmin && <Button w={160} onClick={saveWebsite} loading={updateMut.isPending}>Lưu website</Button>}
         </Stack>
       </Card>
+
+      <Card withBorder>
+        <Title order={5} mb="sm">CORS rules (JSON)</Title>
+        <Textarea value={corsText} onChange={(e) => setCorsText(e.currentTarget.value)} minRows={4} autosize disabled={!isAdmin} styles={{ input: { fontFamily: 'monospace' } }} />
+        {isAdmin && <Button mt="sm" w={140} onClick={() => corsMut.mutate()} loading={corsMut.isPending}>Lưu CORS</Button>}
+      </Card>
+
+      {isAdmin && (
+        <Group>
+          <Button variant="light" color="orange" onClick={() => cleanupMut.mutate()} loading={cleanupMut.isPending}>Dọn multipart upload dở (&gt;24h)</Button>
+        </Group>
+      )}
 
       <Card withBorder>
         <Title order={5} mb="sm">Quyền key trên bucket</Title>

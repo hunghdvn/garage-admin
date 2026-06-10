@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   ActionIcon, Alert, Badge, Button, Card, Code, CopyButton, Group, Modal, Stack, Table, Text, TextInput, Title,
 } from '@mantine/core'
-import { IconPlus, IconTrash, IconCopy, IconCheck } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconCopy, IconCheck, IconEdit } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -18,6 +18,9 @@ export function AdminTokensPage() {
   const [scope, setScope] = useState('*')
   const [expiration, setExpiration] = useState('')
   const [created, setCreated] = useState<AdminToken | null>(null)
+  const [editFor, setEditFor] = useState<AdminToken | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editScope, setEditScope] = useState('')
 
   const { data: tokens } = useQuery({
     queryKey: ['admin-tokens'],
@@ -44,6 +47,13 @@ export function AdminTokensPage() {
     onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Xóa thất bại' }),
   })
 
+  const editMut = useMutation({
+    mutationFn: async () => (await api.post(`/admin-tokens/${editFor!.id}`, { name: editName, scope: editScope.split(',').map((s) => s.trim()).filter(Boolean) })).data,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-tokens'] }); setEditFor(null); notifications.show({ color: 'green', message: 'Đã cập nhật token' }) },
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Cập nhật thất bại' }),
+  })
+  function openEdit(t: AdminToken) { setEditFor(t); setEditName(t.name); setEditScope(t.scope.join(', ')) }
+
   return (
     <Stack>
       <Group justify="space-between">
@@ -68,9 +78,12 @@ export function AdminTokensPage() {
                 </Table.Td>
                 <Table.Td>
                   {isAdmin && t.id !== null && (
-                    <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => deleteMut.mutate(t.id!)}>
-                      <IconTrash size={16} />
-                    </ActionIcon>
+                    <Group gap={4}>
+                      <ActionIcon variant="subtle" aria-label="edit" onClick={() => openEdit(t)}><IconEdit size={16} /></ActionIcon>
+                      <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => deleteMut.mutate(t.id!)}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
                   )}
                 </Table.Td>
               </Table.Tr>
@@ -107,6 +120,14 @@ export function AdminTokensPage() {
             <Button onClick={() => setCreated(null)}>Đã lưu, đóng</Button>
           </Stack>
         )}
+      </Modal>
+
+      <Modal opened={editFor != null} onClose={() => setEditFor(null)} title="Sửa token">
+        <Stack>
+          <TextInput label="Tên" value={editName} onChange={(e) => setEditName(e.currentTarget.value)} />
+          <TextInput label="Scope (phẩy)" value={editScope} onChange={(e) => setEditScope(e.currentTarget.value)} />
+          <Button onClick={() => editMut.mutate()} loading={editMut.isPending}>Lưu</Button>
+        </Stack>
       </Modal>
     </Stack>
   )

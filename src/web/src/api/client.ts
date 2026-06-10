@@ -71,6 +71,7 @@ export interface BucketInfo {
   unfinishedUploads: number
   unfinishedMultipartUploads: number
   quotas: Quotas
+  corsRules?: unknown
 }
 
 export interface KeyListItem {
