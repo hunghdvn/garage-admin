@@ -183,3 +183,13 @@ export interface LayoutPreview {
   message: string[]
   newLayout: unknown
 }
+
+export interface AdminToken {
+  id: string | null
+  created: string | null
+  name: string
+  expiration: string | null
+  expired: boolean
+  scope: string[]
+  secretToken?: string
+}
