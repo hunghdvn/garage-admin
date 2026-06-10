@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Button, Card, Checkbox, Group, Modal, Stack, Table, TextInput, Title, Badge, ActionIcon,
 } from '@mantine/core'
-import { IconTrash, IconPlus } from '@tabler/icons-react'
+import { IconTrash, IconPlus, IconEdit } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -28,6 +28,9 @@ export function SettingsPage() {
   const [opened, { open, close }] = useDisclosure(false)
   const [form, setForm] = useState<FormState>(empty)
 
+  const [editCluster, setEditCluster] = useState<Cluster | null>(null)
+  const [editForm, setEditForm] = useState<FormState>(empty)
+
   const { data: clusters } = useQuery({
     queryKey: ['clusters'],
     queryFn: async () => (await api.get<Cluster[]>('/clusters')).data,
@@ -43,10 +46,34 @@ export function SettingsPage() {
     onError: () => notifications.show({ color: 'red', message: 'Thêm cluster thất bại' }),
   })
 
+  const editMut = useMutation({
+    mutationFn: async (f: FormState) => (await api.put(`/clusters/${editCluster!.id}`, f)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clusters'] })
+      notifications.show({ color: 'green', message: 'Đã cập nhật cluster' })
+      setEditCluster(null)
+    },
+    onError: () => notifications.show({ color: 'red', message: 'Cập nhật cluster thất bại' }),
+  })
+
   const deleteMut = useMutation({
     mutationFn: async (id: number) => api.delete(`/clusters/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['clusters'] }),
   })
+
+  function openEdit(c: Cluster) {
+    setEditForm({
+      name: c.name,
+      admin_endpoint: c.admin_endpoint,
+      admin_token: '',
+      s3_endpoint: c.s3_endpoint,
+      s3_region: c.s3_region,
+      s3_access_key: c.s3_access_key,
+      s3_secret_key: '',
+      is_default: c.is_default,
+    })
+    setEditCluster(c)
+  }
 
   return (
     <Stack>
@@ -71,9 +98,14 @@ export function SettingsPage() {
                 <Table.Td>{c.is_default && <Badge color="green">default</Badge>}</Table.Td>
                 <Table.Td>
                   {isAdmin && (
-                    <ActionIcon color="red" variant="subtle" onClick={() => deleteMut.mutate(c.id)} aria-label="delete">
-                      <IconTrash size={16} />
-                    </ActionIcon>
+                    <Group gap={4}>
+                      <ActionIcon color="blue" variant="subtle" onClick={() => openEdit(c)} aria-label="edit">
+                        <IconEdit size={16} />
+                      </ActionIcon>
+                      <ActionIcon color="red" variant="subtle" onClick={() => deleteMut.mutate(c.id)} aria-label="delete">
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
                   )}
                 </Table.Td>
               </Table.Tr>
@@ -93,6 +125,20 @@ export function SettingsPage() {
           <TextInput label="S3 secret key" value={form.s3_secret_key} onChange={(e) => setForm({ ...form, s3_secret_key: e.currentTarget.value })} />
           <Checkbox label="Đặt làm mặc định" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.currentTarget.checked })} />
           <Button onClick={() => createMut.mutate(form)} loading={createMut.isPending}>Lưu</Button>
+        </Stack>
+      </Modal>
+
+      <Modal opened={editCluster !== null} onClose={() => setEditCluster(null)} title="Sửa cluster">
+        <Stack>
+          <TextInput label="Tên" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.currentTarget.value })} required />
+          <TextInput label="Admin endpoint" value={editForm.admin_endpoint} onChange={(e) => setEditForm({ ...editForm, admin_endpoint: e.currentTarget.value })} required />
+          <TextInput label="Admin token" placeholder="để trống = giữ token cũ" value={editForm.admin_token} onChange={(e) => setEditForm({ ...editForm, admin_token: e.currentTarget.value })} />
+          <TextInput label="S3 endpoint" value={editForm.s3_endpoint} onChange={(e) => setEditForm({ ...editForm, s3_endpoint: e.currentTarget.value })} />
+          <TextInput label="S3 region" value={editForm.s3_region} onChange={(e) => setEditForm({ ...editForm, s3_region: e.currentTarget.value })} />
+          <TextInput label="S3 access key" value={editForm.s3_access_key} onChange={(e) => setEditForm({ ...editForm, s3_access_key: e.currentTarget.value })} />
+          <TextInput label="S3 secret key" placeholder="để trống = giữ nguyên" value={editForm.s3_secret_key} onChange={(e) => setEditForm({ ...editForm, s3_secret_key: e.currentTarget.value })} />
+          <Checkbox label="Đặt làm mặc định" checked={editForm.is_default} onChange={(e) => setEditForm({ ...editForm, is_default: e.currentTarget.checked })} />
+          <Button onClick={() => editMut.mutate(editForm)} loading={editMut.isPending}>Lưu</Button>
         </Stack>
       </Modal>
     </Stack>

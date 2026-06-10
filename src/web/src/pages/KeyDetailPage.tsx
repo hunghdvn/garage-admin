@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
-  Anchor, Badge, Breadcrumbs, Button, Card, Group, Loader, Stack, Switch, Table, Text, TextInput, Title,
+  ActionIcon, Alert, Anchor, Badge, Breadcrumbs, Button, Card, Code, CopyButton, Group, Loader, Stack, Switch, Table, Text, TextInput, Title, Tooltip,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
+import { IconCopy, IconCheck, IconAlertTriangle } from '@tabler/icons-react'
 import { api, type KeyInfo } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
@@ -22,6 +23,9 @@ export function KeyDetailPage() {
   const [name, setName] = useState('')
   const [createBucket, setCreateBucket] = useState(false)
   const [expiry, setExpiry] = useState('')
+  const [secret, setSecret] = useState<string | null>(null)
+  const [revealLoading, setRevealLoading] = useState(false)
+
   useEffect(() => {
     if (key) {
       setName(key.name)
@@ -40,6 +44,18 @@ export function KeyDetailPage() {
     onError: () => notifications.show({ color: 'red', message: 'Cập nhật thất bại' }),
   })
 
+  async function handleRevealSecret() {
+    setRevealLoading(true)
+    try {
+      const res = await api.get<KeyInfo>(`/keys/${id}`, { params: { reveal: 1 } })
+      setSecret(res.data.secretAccessKey ?? null)
+    } catch {
+      notifications.show({ color: 'red', message: 'Không thể lấy secret key' })
+    } finally {
+      setRevealLoading(false)
+    }
+  }
+
   if (isLoading || !key) return <Loader />
 
   return (
@@ -54,6 +70,35 @@ export function KeyDetailPage() {
         <Stack>
           <Group><Text w={140} c="dimmed">Access Key ID</Text><code>{key.accessKeyId}</code></Group>
           <Group><Text w={140} c="dimmed">Trạng thái</Text>{key.expired ? <Badge color="red">expired</Badge> : <Badge color="green">active</Badge>}</Group>
+          {isAdmin && (
+            secret ? (
+              <Stack gap="xs">
+                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" title="Thông tin nhạy cảm">
+                  Secret key chỉ nên được chia sẻ qua kênh bảo mật.
+                </Alert>
+                <Group>
+                  <Text w={140} c="dimmed">Secret Key</Text>
+                  <Code>{secret}</Code>
+                  <CopyButton value={secret} timeout={2000}>
+                    {({ copied, copy }) => (
+                      <Tooltip label={copied ? 'Đã sao chép' : 'Sao chép'} withArrow position="right">
+                        <ActionIcon color={copied ? 'teal' : 'gray'} variant="subtle" onClick={copy}>
+                          {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </CopyButton>
+                </Group>
+              </Stack>
+            ) : (
+              <Group>
+                <Text w={140} c="dimmed">Secret Key</Text>
+                <Button variant="light" size="xs" loading={revealLoading} onClick={handleRevealSecret}>
+                  Hiện secret
+                </Button>
+              </Group>
+            )
+          )}
           <Group align="end">
             <TextInput label="Tên" value={name} onChange={(e) => setName(e.currentTarget.value)} disabled={!isAdmin} />
             {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ name })}>Đổi tên</Button>}
