@@ -62,3 +62,14 @@ func TestDeleteAdminTokenProxiesID(t *testing.T) {
 		t.Fatalf("code=%d query=%q", rec.Code, gotQuery)
 	}
 }
+
+func TestDeleteAdminTokenRequiresAdmin(t *testing.T) {
+	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/admin-tokens/tok1", nil)
+	req.AddCookie(cookie)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("code=%d want 403", rec.Code)
+	}
+}

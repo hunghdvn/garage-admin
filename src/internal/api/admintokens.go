@@ -47,6 +47,12 @@ func (s *Server) handleCurrentAdminToken(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, info)
 }
 
+// adminTokenReqFromBody parses a create/update request body. NOTE: NeverExpires
+// is derived as (expiration == nil), which is correct for CreateAdminToken but
+// NOT for UpdateAdminToken — on update, omitting expiration would clear an
+// existing one. The update endpoint currently has no UI. Before wiring an edit
+// UI, change this so update only sends neverExpires/expiration when the client
+// explicitly provides them (e.g. add an explicit neverExpires field to the body).
 func (s *Server) adminTokenReqFromBody(r *http.Request) (garage.AdminTokenRequest, error) {
 	var body struct {
 		Name       string   `json:"name"`
