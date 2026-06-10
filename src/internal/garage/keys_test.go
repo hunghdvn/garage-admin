@@ -39,7 +39,7 @@ func TestCreateKeyReturnsSecret(t *testing.T) {
 		w.Write([]byte(`{"accessKeyId":"GK9","secretAccessKey":"SECRET","created":"x","name":"mykey","expiration":null,"expired":false,"permissions":{"createBucket":false},"buckets":[]}`))
 	}))
 	defer srv.Close()
-	got, err := New(srv.URL, "t").CreateKey("mykey")
+	got, err := New(srv.URL, "t").CreateKey(KeyCreateRequest{Name: "mykey"})
 	if err != nil {
 		t.Fatal(err)
 	}

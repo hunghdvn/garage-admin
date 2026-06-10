@@ -41,11 +41,20 @@ type KeyInfo struct {
 	Buckets         []KeyBucketPerm `json:"buckets"`
 }
 
-// UpdateKeyRequest is the body for UpdateKey. Nil fields are omitted.
+// UpdateKeyRequest is the body for UpdateKey. Nil/zero fields are omitted.
 type UpdateKeyRequest struct {
-	Name  *string         `json:"name,omitempty"`
-	Allow *KeyPermissions `json:"allow,omitempty"`
-	Deny  *KeyPermissions `json:"deny,omitempty"`
+	Name         *string         `json:"name,omitempty"`
+	Expiration   *string         `json:"expiration,omitempty"`
+	NeverExpires bool            `json:"neverExpires,omitempty"`
+	Allow        *KeyPermissions `json:"allow,omitempty"`
+	Deny         *KeyPermissions `json:"deny,omitempty"`
+}
+
+// KeyCreateRequest is the body for CreateKey.
+type KeyCreateRequest struct {
+	Name         string  `json:"name"`
+	Expiration   *string `json:"expiration,omitempty"`
+	NeverExpires bool    `json:"neverExpires,omitempty"`
 }
 
 // ListKeys calls GET /v2/ListKeys.
@@ -67,9 +76,9 @@ func (c *Client) GetKeyInfo(id string, showSecret bool) (*KeyInfo, error) {
 }
 
 // CreateKey calls POST /v2/CreateKey. The response includes the secret.
-func (c *Client) CreateKey(name string) (*KeyInfo, error) {
+func (c *Client) CreateKey(req KeyCreateRequest) (*KeyInfo, error) {
 	var out KeyInfo
-	err := c.do(context.Background(), http.MethodPost, "/v2/CreateKey", map[string]string{"name": name}, &out)
+	err := c.do(context.Background(), http.MethodPost, "/v2/CreateKey", req, &out)
 	return &out, err
 }
 
