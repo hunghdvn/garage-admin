@@ -124,7 +124,11 @@ export function FilesPage() {
 
           <Card withBorder>
             {files.isLoading ? <Loader /> : files.error ? (
-              <Text c="red">Không duyệt được. Kiểm tra S3 credentials của cluster trong Settings.</Text>
+              <Stack gap={4}>
+                <Text c="red" fw={600}>Không duyệt được bucket.</Text>
+                <Text c="red" size="sm">{(files.error as any)?.response?.data?.error || (files.error as any)?.message || 'Lỗi không xác định'}</Text>
+                <Text size="xs" c="dimmed">Kiểm tra S3 endpoint + access key/secret của cluster trong Settings → Sửa cluster.</Text>
+              </Stack>
             ) : (
               <Table highlightOnHover>
                 <Table.Thead>
