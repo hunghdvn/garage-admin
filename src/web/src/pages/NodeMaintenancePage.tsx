@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Alert, Badge, Button, Card, Code, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Textarea, Title,
+  Alert, Anchor, Badge, Button, Card, Code, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Textarea, Title,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -47,6 +47,22 @@ export function NodeMaintenancePage() {
   const [wval, setWval] = useState('')
   const [purgeText, setPurgeText] = useState('')
   const [confirm, setConfirm] = useState<null | { title: string; run: () => void }>(null)
+  const [workerDetail, setWorkerDetail] = useState<unknown>(null)
+  const [blockHash, setBlockHash] = useState('')
+  const [blockInfo, setBlockInfo] = useState<unknown>(null)
+
+  async function showWorker(wid: number) {
+    try {
+      const data = (await api.post('/nodes/workers/info', { id: wid }, { params: { node } })).data
+      setWorkerDetail(data)
+    } catch (e: any) { notifications.show({ color: 'red', message: e?.response?.data?.error || 'Lỗi' }) }
+  }
+  async function lookupBlock() {
+    try {
+      const data = (await api.post('/nodes/blocks/info', { block_hash: blockHash }, { params: { node } })).data
+      setBlockInfo(data)
+    } catch (e: any) { notifications.show({ color: 'red', message: e?.response?.data?.error || 'Lỗi' }) }
+  }
 
   const mutate = (fn: () => Promise<{ data?: { error?: Record<string, string> } }>, ok: string) =>
     fn().then((res) => {
@@ -102,7 +118,7 @@ export function NodeMaintenancePage() {
             {workerList.map((wk) => (
               <Table.Tr key={wk.id}>
                 <Table.Td>{wk.id}</Table.Td>
-                <Table.Td>{wk.name}</Table.Td>
+                <Table.Td><Anchor onClick={() => showWorker(wk.id)}>{wk.name}</Anchor></Table.Td>
                 <Table.Td><Badge variant="light" color={wk.state === 'busy' ? 'blue' : wk.errors > 0 ? 'red' : 'gray'}>{wk.state}</Badge></Table.Td>
                 <Table.Td>{wk.errors}</Table.Td>
                 <Table.Td>{wk.queueLength}</Table.Td>
@@ -160,6 +176,15 @@ export function NodeMaintenancePage() {
         )}
       </Card>
 
+      <Card withBorder>
+        <Title order={5} mb="sm">Tra cứu block</Title>
+        <Group align="end">
+          <TextInput label="Block hash" value={blockHash} onChange={(e) => setBlockHash(e.currentTarget.value)} w={360} />
+          <Button variant="light" onClick={lookupBlock} disabled={!blockHash}>Tra cứu</Button>
+        </Group>
+        {blockInfo != null && <Code block mt="sm">{JSON.stringify(blockInfo, null, 2)}</Code>}
+      </Card>
+
       <Modal opened={confirm != null} onClose={() => setConfirm(null)} title="Xác nhận">
         <Stack>
           <Alert color="orange">{confirm?.title}</Alert>
@@ -168,6 +193,10 @@ export function NodeMaintenancePage() {
             <Button color="red" onClick={() => { confirm?.run(); setConfirm(null) }}>Xác nhận</Button>
           </Group>
         </Stack>
+      </Modal>
+
+      <Modal opened={workerDetail != null} onClose={() => setWorkerDetail(null)} title="Chi tiết worker" size="lg">
+        <Code block>{JSON.stringify(workerDetail, null, 2)}</Code>
       </Modal>
     </Stack>
   )
