@@ -91,3 +91,22 @@ func (d *DB) DeleteUser(id int64) error {
 	_, err := d.sql.Exec(`DELETE FROM users WHERE id=?`, id)
 	return err
 }
+
+// UpdateUserRole sets a user's role.
+func (d *DB) UpdateUserRole(id int64, role string) error {
+	_, err := d.sql.Exec(`UPDATE users SET role=?, updated_at=? WHERE id=?`, role, nowRFC3339(), id)
+	return err
+}
+
+// UpdateUserPassword sets a user's password hash.
+func (d *DB) UpdateUserPassword(id int64, passwordHash string) error {
+	_, err := d.sql.Exec(`UPDATE users SET password_hash=?, updated_at=? WHERE id=?`, passwordHash, nowRFC3339(), id)
+	return err
+}
+
+// CountAdmins returns the number of users with the admin role.
+func (d *DB) CountAdmins() (int, error) {
+	var n int
+	err := d.sql.QueryRow(`SELECT COUNT(*) FROM users WHERE role='admin'`).Scan(&n)
+	return n, err
+}
