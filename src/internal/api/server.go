@@ -43,6 +43,7 @@ func (s *Server) Routes() http.Handler {
 		s.mountAdminTokens(r)
 		s.mountNodes(r)
 		s.mountFiles(r)
+		s.mountUsers(r)
 	})
 
 	if s.Static != nil {
