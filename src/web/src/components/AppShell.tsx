@@ -4,7 +4,6 @@ import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey, IconServe
 import { Link, useLocation } from 'react-router-dom'
 import { type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { ThemeSwitcher } from './ThemeSwitcher'
 import { ClusterSelector } from './ClusterSelector'
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -26,7 +25,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Group>
           <Group>
             <ClusterSelector />
-            <ThemeSwitcher />
             <Menu position="bottom-end" withArrow>
               <Menu.Target>
                 <Button variant="subtle" leftSection={<IconUserCircle size={18} />}>{user?.username} ({user?.role})</Button>

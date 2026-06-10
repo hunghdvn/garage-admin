@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Button, Card, Checkbox, Group, Modal, Stack, Table, TextInput, Title, Badge, ActionIcon,
+  SegmentedControl, Text, useMantineColorScheme,
 } from '@mantine/core'
 import { IconTrash, IconPlus, IconEdit } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
@@ -9,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Cluster } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
+import { themeNames, loadThemeName, saveThemeName } from '../theme/themes'
 
 interface FormState {
   name: string; admin_endpoint: string; admin_token: string
@@ -26,8 +28,14 @@ export function SettingsPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
+  const { colorScheme, setColorScheme } = useMantineColorScheme()
   const [opened, { open, close }] = useDisclosure(false)
   const [form, setForm] = useState<FormState>(empty)
+
+  function changeTheme(name: string) {
+    saveThemeName(name)
+    window.location.reload() // re-create MantineProvider with the new preset
+  }
 
   const [editCluster, setEditCluster] = useState<Cluster | null>(null)
   const [editForm, setEditForm] = useState<FormState>(empty)
@@ -78,7 +86,25 @@ export function SettingsPage() {
 
   return (
     <Stack>
-      <Group justify="space-between">
+      <Title order={3}>Giao diện</Title>
+      <Card withBorder>
+        <Stack>
+          <div>
+            <Text size="sm" fw={600} mb={6}>Theme</Text>
+            <SegmentedControl data={themeNames} value={loadThemeName()} onChange={changeTheme} />
+          </div>
+          <div>
+            <Text size="sm" fw={600} mb={6}>Chế độ màu</Text>
+            <SegmentedControl
+              value={colorScheme}
+              onChange={(v) => setColorScheme(v as 'light' | 'dark' | 'auto')}
+              data={[{ label: 'Sáng', value: 'light' }, { label: 'Tối', value: 'dark' }, { label: 'Tự động', value: 'auto' }]}
+            />
+          </div>
+        </Stack>
+      </Card>
+
+      <Group justify="space-between" mt="md">
         <Title order={3}>Cluster connections</Title>
         {isAdmin && <Button leftSection={<IconPlus size={16} />} onClick={open}>Thêm cluster</Button>}
       </Group>
