@@ -186,6 +186,10 @@ func (s *Server) handleRetryBlocks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if !body.All && len(body.BlockHashes) == 0 {
+		writeError(w, http.StatusBadRequest, "either all=true or block_hashes is required")
+		return
+	}
 	client, err := s.garageClientForRequest(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "no cluster configured")

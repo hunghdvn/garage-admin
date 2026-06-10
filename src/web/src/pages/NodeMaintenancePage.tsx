@@ -48,8 +48,13 @@ export function NodeMaintenancePage() {
   const [purgeText, setPurgeText] = useState('')
   const [confirm, setConfirm] = useState<null | { title: string; run: () => void }>(null)
 
-  const mutate = (fn: () => Promise<unknown>, ok: string) =>
-    fn().then(() => {
+  const mutate = (fn: () => Promise<{ data?: { error?: Record<string, string> } }>, ok: string) =>
+    fn().then((res) => {
+      const errMap = res?.data?.error
+      if (errMap && Object.keys(errMap).length > 0) {
+        notifications.show({ color: 'red', message: String(Object.values(errMap)[0]) })
+        return
+      }
       notifications.show({ color: 'green', message: ok })
       qc.invalidateQueries({ queryKey: ['node-workers', node] })
       qc.invalidateQueries({ queryKey: ['node-block-errors', node] })
@@ -58,6 +63,7 @@ export function NodeMaintenancePage() {
   if (status.isLoading) return <Loader />
   const nodeOptions = (status.data?.nodes ?? []).map((n) => ({ value: n.id, label: `${n.hostname} (${n.id.slice(0, 12)}…)` }))
   const nodeInfo = firstNode(info.data, node)
+  const nodeErr = info.data?.error?.[node]
   const workerList = firstNode(workers.data, node) ?? []
   const errList = firstNode(blockErrors.data, node) ?? []
 
@@ -78,7 +84,7 @@ export function NodeMaintenancePage() {
             <Group><Text w={160} c="dimmed">Rust</Text><Text>{nodeInfo.rustVersion}</Text></Group>
             <Group align="start"><Text w={160} c="dimmed">Features</Text><Group gap={4}>{nodeInfo.garageFeatures.map((f) => <Badge key={f} variant="light" size="sm">{f}</Badge>)}</Group></Group>
           </Stack>
-        ) : <Loader size="sm" />}
+        ) : nodeErr ? <Alert color="red">{nodeErr}</Alert> : <Loader size="sm" />}
       </Card>
 
       <Card withBorder>
