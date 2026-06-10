@@ -8,7 +8,7 @@ import { BrowserRouter } from 'react-router-dom'
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 import { App } from './App'
-import { themes, loadThemeName } from './theme/themes'
+import { themes, loadThemeName, resolverFor } from './theme/themes'
 import { AuthProvider } from './auth/AuthContext'
 import { ClusterProvider } from './cluster/ClusterContext'
 
@@ -16,7 +16,7 @@ const queryClient = new QueryClient()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <MantineProvider theme={themes[loadThemeName()]} defaultColorScheme="auto">
+    <MantineProvider theme={themes[loadThemeName()]} cssVariablesResolver={resolverFor(loadThemeName())} defaultColorScheme="auto">
       <ModalsProvider>
       <Notifications />
       <QueryClientProvider client={queryClient}>
