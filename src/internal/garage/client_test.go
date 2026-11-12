@@ -1,6 +1,7 @@
 package garage
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,7 +16,8 @@ func TestGetClusterHealth(t *testing.T) {
 			t.Errorf("missing bearer token, got %q", r.Header.Get("Authorization"))
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"healthy","knownNodes":3,"connectedNodes":3,"storageNodes":3,"storageNodesOk":3,"partitions":256,"partitionsQuorum":256,"partitionsAllOk":256}`))
+		// Real field names of Garage v2 GetClusterHealth (verified against v2.5.0).
+		w.Write([]byte(`{"status":"healthy","knownNodes":3,"connectedNodes":3,"storageNodes":3,"storageNodesUp":2,"partitions":256,"partitionsQuorum":256,"partitionsAllOk":256}`))
 	}))
 	defer srv.Close()
 
@@ -26,6 +28,19 @@ func TestGetClusterHealth(t *testing.T) {
 	}
 	if h.Status != "healthy" || h.ConnectedNodes != 3 {
 		t.Errorf("unexpected health: %+v", h)
+	}
+
+	// The API handler forwards this struct as JSON to the web UI, so check what it emits.
+	out, err := json.Marshal(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := got["storageNodesUp"]; !ok || v != float64(2) {
+		t.Errorf("storageNodesUp = %v (present=%v), want 2; emitted %s", v, ok, out)
 	}
 }
 
