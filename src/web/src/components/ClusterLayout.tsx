@@ -1,12 +1,65 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   Alert, Badge, Button, Card, Code, Group, Loader, Modal, NumberInput, Stack, Table, Text, TextInput, Textarea, Title,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type ClusterLayoutData, type LayoutHistory, type LayoutPreview } from '../api/client'
+import { api, type ClusterLayoutData, type LayoutHistory, type LayoutPreview, type LayoutStatistics } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from '../pages/BucketsPage'
+
+// Structured layout computation statistics (Garage >= v2.4).
+function LayoutStats({ s }: { s: LayoutStatistics }) {
+  const rows: [string, ReactNode][] = [
+    ['Replication factor', s.replicationFactor],
+    ['Zone redundancy đạt được', s.effectiveZoneRedundancy],
+    ['Partition size', s.previousPartitionSize != null && s.previousPartitionSize !== s.partitionSize
+      ? `${fmtBytes(s.partitionSize)} (trước: ${fmtBytes(s.previousPartitionSize)})`
+      : fmtBytes(s.partitionSize)],
+    ['Dung lượng thô', fmtBytes(s.totalCapacity)],
+    ['Dung lượng dùng được', fmtBytes(s.usableCapacity)],
+    ['Dung lượng hiệu dụng (sau replication)', fmtBytes(s.effectiveCapacity)],
+    ['Partition sẽ di chuyển', s.totalMovedPartitions ?? '—'],
+  ]
+  return (
+    <Stack gap="sm">
+      {s.lowPartitionSize && <Alert color="orange">Partition rất nhỏ — capacity các node có thể đang đặt quá thấp.</Alert>}
+      {s.lowUsableCapacity && <Alert color="orange">Không tận dụng được hết dung lượng thô của các node (capacity giữa các zone/node chênh lệch).</Alert>}
+      <Table>
+        <Table.Tbody>
+          {rows.map(([k, v]) => (
+            <Table.Tr key={k}><Table.Td c="dimmed">{k}</Table.Td><Table.Td>{v}</Table.Td></Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+      <Table.ScrollContainer minWidth={520}>
+        <Table>
+          <Table.Thead>
+            <Table.Tr><Table.Th>Zone / node</Table.Th><Table.Th>Partitions</Table.Th><Table.Th>Mới</Table.Th><Table.Th>Dùng được / thô</Table.Th></Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {s.zones.flatMap((z) => [
+              <Table.Tr key={`z-${z.name}`} fw={600}>
+                <Table.Td>{z.name}</Table.Td>
+                <Table.Td>{z.uniquePartitions} unique · {z.totalReplicatedPartitions} replicas</Table.Td>
+                <Table.Td />
+                <Table.Td>{fmtBytes(z.usableCapacity)} / {fmtBytes(z.totalCapacity)}</Table.Td>
+              </Table.Tr>,
+              ...z.nodes.map((n) => (
+                <Table.Tr key={`n-${n.id}`}>
+                  <Table.Td pl="lg"><code>{n.id.slice(0, 16)}…</code>{n.tags.length > 0 && <Text span size="xs" c="dimmed"> [{n.tags.join(', ')}]</Text>}</Table.Td>
+                  <Table.Td>{n.storedPartitions}</Table.Td>
+                  <Table.Td>{n.newPartitions}</Table.Td>
+                  <Table.Td>{fmtBytes(n.usableCapacity)} / {fmtBytes(n.totalCapacity)}</Table.Td>
+                </Table.Tr>
+              )),
+            ])}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+    </Stack>
+  )
+}
 
 export function ClusterLayout() {
   const { user } = useAuth()
@@ -16,7 +69,7 @@ export function ClusterLayout() {
   const layout = useQuery({ queryKey: ['cluster-layout'], queryFn: async () => (await api.get<ClusterLayoutData>('/cluster/layout')).data })
   const history = useQuery({ queryKey: ['cluster-layout-history'], queryFn: async () => (await api.get<LayoutHistory>('/cluster/layout/history')).data })
 
-  const [preview, setPreview] = useState<LayoutPreview | null>(null)
+  const [preview, setPreview] = useState<{ title: string; data: LayoutPreview } | null>(null)
   const [applyOpen, setApplyOpen] = useState(false)
   const [connectText, setConnectText] = useState('')
 
@@ -45,13 +98,19 @@ export function ClusterLayout() {
 
   const previewMut = useMutation({
     mutationFn: async () => (await api.post<LayoutPreview>('/cluster/layout/preview', {})).data,
-    onSuccess: (data) => setPreview(data),
+    onSuccess: (data) => setPreview({ title: 'Preview layout changes', data }),
     onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Preview thất bại' }),
   })
 
   const applyMut = useMutation({
-    mutationFn: async (version: number) => (await api.post('/cluster/layout/apply', { version })).data,
-    onSuccess: () => { refresh(); setApplyOpen(false); setPreview(null); notifications.show({ color: 'green', message: 'Đã apply layout' }) },
+    mutationFn: async (version: number) => (await api.post<LayoutPreview>('/cluster/layout/apply', { version })).data,
+    onSuccess: (data, version) => {
+      refresh()
+      setApplyOpen(false)
+      // Show what the new layout looks like (statistics: Garage >= v2.4).
+      setPreview(data?.statistics || data?.message?.length ? { title: `Đã apply layout v${version}`, data } : null)
+      notifications.show({ color: 'green', message: 'Đã apply layout' })
+    },
     onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Apply thất bại' }),
   })
 
@@ -157,9 +216,12 @@ export function ClusterLayout() {
         </Card>
       )}
 
-      <Modal opened={preview != null} onClose={() => setPreview(null)} title="Preview layout changes" size="lg">
+      <Modal opened={preview != null} onClose={() => setPreview(null)} title={preview?.title} size="lg">
         {preview && (
-          <Code block>{preview.message.join('\n')}</Code>
+          <Stack>
+            {preview.data.statistics && <LayoutStats s={preview.data.statistics} />}
+            {preview.data.message?.length > 0 && <Code block>{preview.data.message.join('\n')}</Code>}
+          </Stack>
         )}
       </Modal>
 

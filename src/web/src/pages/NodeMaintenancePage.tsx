@@ -6,6 +6,7 @@ import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, firstNode, type ClusterStatus, type MultiNode, type NodeInfoData, type Worker } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { fmtBytes } from './BucketsPage'
 
 const REPAIR_TYPES = ['tables', 'blocks', 'versions', 'multipartUploads', 'blockRefs', 'blockRc', 'rebalance', 'aliases', 'clearResyncQueue']
 
@@ -99,6 +100,32 @@ export function NodeMaintenancePage() {
             <Group><Text w={160} c="dimmed">DB engine</Text><Text>{nodeInfo.dbEngine}</Text></Group>
             <Group><Text w={160} c="dimmed">Rust</Text><Text>{nodeInfo.rustVersion}</Text></Group>
             <Group align="start"><Text w={160} c="dimmed">Features</Text><Group gap={4}>{nodeInfo.garageFeatures.map((f) => <Badge key={f} variant="light" size="sm">{f}</Badge>)}</Group></Group>
+            {/* Garage >= v2.4 */}
+            {nodeInfo.addr && <Group><Text w={160} c="dimmed">Địa chỉ RPC</Text><Code>{nodeInfo.addr}</Code></Group>}
+            {nodeInfo.isUp !== undefined && (
+              <Group><Text w={160} c="dimmed">Trạng thái</Text><Group gap={4}>
+                {nodeInfo.isUp ? <Badge color="green">up</Badge> : <Badge color="red">down</Badge>}
+                {nodeInfo.draining && <Badge color="orange">draining</Badge>}
+              </Group></Group>
+            )}
+            {nodeInfo.role !== undefined && (
+              <Group><Text w={160} c="dimmed">Role</Text><Text>{nodeInfo.role
+                ? `zone ${nodeInfo.role.zone} · ${nodeInfo.role.capacity != null ? fmtBytes(nodeInfo.role.capacity) : 'gateway'}${nodeInfo.role.tags.length ? ` · tags: ${nodeInfo.role.tags.join(', ')}` : ''}`
+                : 'chưa gán role'}</Text></Group>
+            )}
+            {nodeInfo.dataPartition && <Group><Text w={160} c="dimmed">Data partition</Text><Text>{fmtBytes(nodeInfo.dataPartition.available)} trống / {fmtBytes(nodeInfo.dataPartition.total)}</Text></Group>}
+            {nodeInfo.metadataPartition && <Group><Text w={160} c="dimmed">Metadata partition</Text><Text>{fmtBytes(nodeInfo.metadataPartition.available)} trống / {fmtBytes(nodeInfo.metadataPartition.total)}</Text></Group>}
+            {/* Garage >= v2.5: what S3/K2V clients should use to reach this node */}
+            {nodeInfo.connectionParameters && (
+              <Group align="start"><Text w={160} c="dimmed">Kết nối client</Text>
+                <Stack gap={2}>
+                  <Text size="sm">Region: <Code>{nodeInfo.connectionParameters.region}</Code></Text>
+                  {nodeInfo.connectionParameters.s3Endpoint && <Text size="sm">S3 endpoint: <Code>{nodeInfo.connectionParameters.s3Endpoint}</Code></Text>}
+                  {nodeInfo.connectionParameters.s3UsePathStyle != null && <Text size="sm">Path-style: <Code>{nodeInfo.connectionParameters.s3UsePathStyle ? 'có' : 'không'}</Code></Text>}
+                  {nodeInfo.connectionParameters.k2vEndpoint && <Text size="sm">K2V endpoint: <Code>{nodeInfo.connectionParameters.k2vEndpoint}</Code></Text>}
+                </Stack>
+              </Group>
+            )}
           </Stack>
         ) : nodeErr ? <Alert color="red">{nodeErr}</Alert> : <Loader size="sm" />}
       </Card>

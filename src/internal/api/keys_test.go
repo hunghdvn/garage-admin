@@ -9,8 +9,11 @@ import (
 )
 
 func TestListKeysProxy(t *testing.T) {
-	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(`[{"id":"GK1","name":"k","created":"x","expiration":null,"expired":false}]`))
+	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v2/ListKeysInfo" {
+			t.Errorf("path=%q", req.URL.Path)
+		}
+		w.Write([]byte(`[{"accessKeyId":"GK1","name":"k","created":"x","expiration":null,"expired":false,"permissions":{"createBucket":false},"buckets":[]}]`))
 	})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/api/keys", nil)

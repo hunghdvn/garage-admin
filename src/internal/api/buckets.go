@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -31,12 +32,29 @@ func (s *Server) handleListBuckets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "no cluster configured")
 		return
 	}
+	// Garage >= v2.5 returns sizes/objects/keys for every bucket in one call.
+	detailed, err := client.ListBucketsInfo()
+	if err == nil {
+		writeJSON(w, http.StatusOK, detailed)
+		return
+	}
+	if !unsupportedEndpoint(err) {
+		writeGarageError(w, err)
+		return
+	}
 	list, err := client.ListBuckets()
 	if err != nil {
 		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+// unsupportedEndpoint reports whether Garage rejected the call because it does
+// not know the endpoint (older Garage answers 400 "Unknown API endpoint").
+func unsupportedEndpoint(err error) bool {
+	var ae *garage.APIError
+	return errors.As(err, &ae) && (ae.StatusCode == http.StatusBadRequest || ae.StatusCode == http.StatusNotFound)
 }
 
 func (s *Server) handleGetBucket(w http.ResponseWriter, r *http.Request) {

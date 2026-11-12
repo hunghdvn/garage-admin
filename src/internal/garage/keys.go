@@ -64,6 +64,14 @@ func (c *Client) ListKeys() ([]KeyListItem, error) {
 	return out, err
 }
 
+// ListKeysInfo calls GET /v2/ListKeysInfo (Garage >= v2.5): every key with full
+// GetKeyInfo details in one call.
+func (c *Client) ListKeysInfo() ([]KeyInfo, error) {
+	var out []KeyInfo
+	err := c.do(context.Background(), http.MethodGet, "/v2/ListKeysInfo", nil, &out)
+	return out, err
+}
+
 // GetKeyInfo calls GET /v2/GetKeyInfo?id=. If showSecret, the secret is revealed.
 func (c *Client) GetKeyInfo(id string, showSecret bool) (*KeyInfo, error) {
 	path := "/v2/GetKeyInfo?id=" + url.QueryEscape(id)

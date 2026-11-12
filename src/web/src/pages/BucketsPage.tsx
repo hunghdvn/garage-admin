@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ActionIcon, Badge, Button, Card, Group, Modal, Stack, Table, TextInput, Title,
+  ActionIcon, Badge, Button, Card, Group, Modal, Stack, Table, Text, TextInput, Title, Tooltip,
 } from '@mantine/core'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
@@ -66,35 +66,56 @@ export function BucketsPage() {
         {isAdmin && <Button leftSection={<IconPlus size={16} />} onClick={open}>Tạo bucket</Button>}
       </Group>
       <Card withBorder>
-        <Table highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Alias</Table.Th>
-              <Table.Th>ID</Table.Th>
-              <Table.Th />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {buckets?.map((b) => (
-              <Table.Tr key={b.id}>
-                <Table.Td>
-                  <Link to={`/buckets/${b.id}`}>
-                    {b.globalAliases.length > 0 ? b.globalAliases.join(', ') : <Badge color="gray">no alias</Badge>}
-                  </Link>
-                </Table.Td>
-                <Table.Td><code>{b.id.slice(0, 16)}…</code></Table.Td>
-                <Table.Td>
-                  {isAdmin && (
-                    <ActionIcon color="red" variant="subtle" aria-label="delete"
-                      onClick={() => confirmDelete(b.globalAliases[0] ?? b.id, () => deleteMut.mutate(b.id))}>
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  )}
-                </Table.Td>
+        <Table.ScrollContainer minWidth={640}>
+          <Table highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Alias</Table.Th>
+                <Table.Th>Objects</Table.Th>
+                <Table.Th>Dung lượng</Table.Th>
+                <Table.Th>Keys</Table.Th>
+                <Table.Th>ID</Table.Th>
+                <Table.Th />
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {buckets?.map((b) => (
+                <Table.Tr key={b.id}>
+                  <Table.Td>
+                    <Link to={`/buckets/${b.id}`}>
+                      {b.globalAliases.length > 0 ? b.globalAliases.join(', ') : <Badge color="gray">no alias</Badge>}
+                    </Link>
+                  </Table.Td>
+                  {/* objects/bytes/keys/quotas come from ListBucketsInfo (Garage >= v2.5); older clusters show "—". */}
+                  <Table.Td>
+                    {b.objects != null ? b.objects.toLocaleString() : '—'}
+                    {b.quotas?.maxObjects != null && <Text span size="xs" c="dimmed"> / {b.quotas.maxObjects.toLocaleString()}</Text>}
+                  </Table.Td>
+                  <Table.Td>
+                    {b.bytes != null ? fmtBytes(b.bytes) : '—'}
+                    {b.quotas?.maxSize != null && <Text span size="xs" c="dimmed"> / {fmtBytes(b.quotas.maxSize)}</Text>}
+                  </Table.Td>
+                  <Table.Td>
+                    {b.keys ? (
+                      <Tooltip label={b.keys.map((k) => k.name || k.accessKeyId).join(', ')} disabled={b.keys.length === 0}>
+                        <Text span inherit>{b.keys.length}</Text>
+                      </Tooltip>
+                    ) : '—'}
+                  </Table.Td>
+                  <Table.Td><code>{b.id.slice(0, 16)}…</code></Table.Td>
+                  <Table.Td>
+                    {isAdmin && (
+                      <ActionIcon color="red" variant="subtle" aria-label="delete"
+                        onClick={() => confirmDelete(b.globalAliases[0] ?? b.id, () => deleteMut.mutate(b.id))}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </Card>
 
       <Modal opened={opened} onClose={close} title="Tạo bucket">

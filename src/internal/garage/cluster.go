@@ -64,9 +64,13 @@ type LayoutHistory struct {
 }
 
 // LayoutPreview mirrors PreviewClusterLayoutChanges / ApplyClusterLayout responses.
+// Preview returns the computed layout as newLayout, Apply returns it as layout.
+// Statistics (Garage >= v2.4) is the structured ComputationStat, passed through as-is.
 type LayoutPreview struct {
-	Message   []string        `json:"message"`
-	NewLayout json.RawMessage `json:"newLayout"`
+	Message    []string        `json:"message"`
+	NewLayout  json.RawMessage `json:"newLayout,omitempty"`
+	Layout     json.RawMessage `json:"layout,omitempty"`
+	Statistics json.RawMessage `json:"statistics,omitempty"`
 }
 
 // NodeRoleChange is one entry in the UpdateClusterLayout request array.

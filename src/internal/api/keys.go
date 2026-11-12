@@ -27,12 +27,39 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "no cluster configured")
 		return
 	}
+	// Garage >= v2.5 returns permissions and buckets for every key in one call.
+	detailed, err := client.ListKeysInfo()
+	if err == nil {
+		out := make([]keySummary, 0, len(detailed))
+		for _, k := range detailed {
+			// Built field by field so a secret can never reach this list.
+			out = append(out, keySummary{
+				KeyListItem: garage.KeyListItem{ID: k.AccessKeyID, Name: k.Name, Created: k.Created, Expiration: k.Expiration, Expired: k.Expired},
+				Permissions: &k.Permissions,
+				Buckets:     k.Buckets,
+			})
+		}
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	if !unsupportedEndpoint(err) {
+		writeGarageError(w, err)
+		return
+	}
 	list, err := client.ListKeys()
 	if err != nil {
 		writeGarageError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
+}
+
+// keySummary is one row of GET /api/keys. Permissions and Buckets are only
+// present when the cluster supports ListKeysInfo (Garage >= v2.5).
+type keySummary struct {
+	garage.KeyListItem
+	Permissions *garage.KeyPermissions `json:"permissions,omitempty"`
+	Buckets     []garage.KeyBucketPerm `json:"buckets,omitempty"`
 }
 
 func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {

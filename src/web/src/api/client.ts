@@ -28,7 +28,7 @@ export interface ClusterHealth {
   knownNodes: number
   connectedNodes: number
   storageNodes: number
-  storageNodesOk: number
+  storageNodesUp: number
   partitions: number
   partitionsQuorum: number
   partitionsAllOk: number
@@ -38,7 +38,12 @@ export interface BucketListItem {
   id: string
   created: string
   globalAliases: string[]
-  localAliases: unknown[]
+  localAliases?: unknown[]
+  // Present only when the cluster supports ListBucketsInfo (Garage >= v2.5).
+  objects?: number
+  bytes?: number
+  keys?: BucketKeyPerm[]
+  quotas?: Quotas
 }
 
 export interface Permissions {
@@ -80,6 +85,9 @@ export interface KeyListItem {
   created: string
   expiration: string | null
   expired: boolean
+  // Present only when the cluster supports ListKeysInfo (Garage >= v2.5).
+  permissions?: { createBucket: boolean }
+  buckets?: KeyBucketPerm[]
 }
 
 export interface KeyBucketPerm {
@@ -124,6 +132,7 @@ export interface ClusterNode {
   role: { zone: string; capacity: number | null; tags: string[] } | null
   dataPartition: { available: number; total: number } | null
   metadataPartition: { available: number; total: number } | null
+  resyncQueueLen?: number | null // Garage >= v2.5
 }
 
 export interface ClusterStatus {
@@ -180,9 +189,44 @@ export interface LayoutHistory {
   versions: LayoutVersionInfo[]
 }
 
+// ComputationStat returned by layout preview/apply (Garage >= v2.4).
+export interface LayoutNodeStat {
+  id: string
+  tags: string[]
+  storedPartitions: number
+  newPartitions: number
+  totalCapacity: number
+  usableCapacity: number
+}
+
+export interface LayoutZoneStat {
+  name: string
+  nodes: LayoutNodeStat[]
+  totalReplicatedPartitions: number
+  uniquePartitions: number
+  totalCapacity: number
+  usableCapacity: number
+}
+
+export interface LayoutStatistics {
+  replicationFactor: number
+  effectiveZoneRedundancy: number
+  partitionSize: number
+  previousPartitionSize: number | null
+  lowPartitionSize: boolean
+  usableCapacity: number
+  totalCapacity: number
+  effectiveCapacity: number
+  lowUsableCapacity: boolean
+  totalMovedPartitions: number | null
+  zones: LayoutZoneStat[]
+}
+
 export interface LayoutPreview {
   message: string[]
-  newLayout: unknown
+  newLayout?: unknown // preview
+  layout?: unknown // apply
+  statistics?: LayoutStatistics | null
 }
 
 export interface AdminToken {
@@ -200,6 +244,13 @@ export interface MultiNode<T> {
   error: Record<string, string>
 }
 
+export interface ConnectionParameters {
+  region: string
+  s3Endpoint?: string | null
+  s3UsePathStyle?: boolean | null
+  k2vEndpoint?: string | null
+}
+
 export interface NodeInfoData {
   nodeId: string
   hostname: string
@@ -207,6 +258,15 @@ export interface NodeInfoData {
   garageFeatures: string[]
   rustVersion: string
   dbEngine: string
+  // Garage >= v2.4
+  addr?: string | null
+  isUp?: boolean
+  draining?: boolean
+  role?: { zone: string; capacity: number | null; tags: string[] } | null
+  dataPartition?: { available: number; total: number } | null
+  metadataPartition?: { available: number; total: number } | null
+  // Garage >= v2.5
+  connectionParameters?: ConnectionParameters | null
 }
 
 export interface Worker {

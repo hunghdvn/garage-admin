@@ -79,6 +79,14 @@ func (c *Client) ListBuckets() ([]BucketListItem, error) {
 	return out, err
 }
 
+// ListBucketsInfo calls GET /v2/ListBucketsInfo (Garage >= v2.5): every bucket
+// with full GetBucketInfo details in one call.
+func (c *Client) ListBucketsInfo() ([]BucketInfo, error) {
+	var out []BucketInfo
+	err := c.do(context.Background(), http.MethodGet, "/v2/ListBucketsInfo", nil, &out)
+	return out, err
+}
+
 // GetBucketInfo calls GET /v2/GetBucketInfo?id=.
 func (c *Client) GetBucketInfo(id string) (*BucketInfo, error) {
 	var out BucketInfo

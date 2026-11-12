@@ -7,9 +7,14 @@ import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { api, type KeyListItem, type KeyInfo } from '../api/client'
+import { api, type KeyListItem, type KeyInfo, type Permissions } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
+
+// "RWO"-style summary of a key's permissions on one bucket.
+function permLetters(p: Permissions): string {
+  return [p.read && 'R', p.write && 'W', p.owner && 'O'].filter(Boolean).join('') || '—'
+}
 
 export function KeysPage() {
   const { user } = useAuth()
@@ -70,27 +75,46 @@ export function KeysPage() {
       </Group>
 
       <Card withBorder>
-        <Table highlightOnHover>
-          <Table.Thead>
-            <Table.Tr><Table.Th>Tên</Table.Th><Table.Th>Access Key ID</Table.Th><Table.Th>Trạng thái</Table.Th><Table.Th /></Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {keys?.map((k) => (
-              <Table.Tr key={k.id}>
-                <Table.Td><Link to={`/keys/${k.id}`}>{k.name || '(no name)'}</Link></Table.Td>
-                <Table.Td><code>{k.id}</code></Table.Td>
-                <Table.Td>{k.expired ? <Badge color="red">expired</Badge> : <Badge color="green">active</Badge>}</Table.Td>
-                <Table.Td>
-                  {isAdmin && (
-                    <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(k.name || k.id, () => deleteMut.mutate(k.id))}>
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  )}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+        <Table.ScrollContainer minWidth={640}>
+          <Table highlightOnHover>
+            <Table.Thead>
+              <Table.Tr><Table.Th>Tên</Table.Th><Table.Th>Access Key ID</Table.Th><Table.Th>Buckets</Table.Th><Table.Th>Trạng thái</Table.Th><Table.Th /></Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {keys?.map((k) => (
+                <Table.Tr key={k.id}>
+                  <Table.Td><Link to={`/keys/${k.id}`}>{k.name || '(no name)'}</Link></Table.Td>
+                  <Table.Td><code>{k.id}</code></Table.Td>
+                  {/* permissions/buckets come from ListKeysInfo (Garage >= v2.5); older clusters show "—". */}
+                  <Table.Td>
+                    {k.permissions === undefined ? '—' : (k.buckets ?? []).length === 0 ? <Text span size="sm" c="dimmed">không có</Text> : (
+                      <Group gap={4}>
+                        {(k.buckets ?? []).map((b) => (
+                          <Badge key={b.id} variant="light" size="sm" component={Link} to={`/buckets/${b.id}`} style={{ cursor: 'pointer', textTransform: 'none' }}>
+                            {b.globalAliases[0] ?? b.localAliases[0] ?? `${b.id.slice(0, 8)}…`} · {permLetters(b.permissions)}
+                          </Badge>
+                        ))}
+                      </Group>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap={4}>
+                      {k.expired ? <Badge color="red">expired</Badge> : <Badge color="green">active</Badge>}
+                      {k.permissions?.createBucket && <Badge color="grape" variant="light">tạo bucket</Badge>}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    {isAdmin && (
+                      <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(k.name || k.id, () => deleteMut.mutate(k.id))}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </Card>
 
       <Modal opened={createOpened} onClose={createCtl.close} title="Tạo access key">

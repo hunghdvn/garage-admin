@@ -26,23 +26,26 @@ export function ClusterOverview() {
 
       <Card withBorder>
         <Title order={5} mb="sm">Nodes</Title>
-        <Table>
-          <Table.Thead>
-            <Table.Tr><Table.Th>ID</Table.Th><Table.Th>Hostname</Table.Th><Table.Th>Zone</Table.Th><Table.Th>Capacity</Table.Th><Table.Th>Data avail</Table.Th><Table.Th>Trạng thái</Table.Th></Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {status.data!.nodes.map((n) => (
-              <Table.Tr key={n.id}>
-                <Table.Td><code>{n.id.slice(0, 16)}…</code></Table.Td>
-                <Table.Td>{n.hostname}</Table.Td>
-                <Table.Td>{n.role?.zone ?? '—'}</Table.Td>
-                <Table.Td>{n.role?.capacity != null ? fmtBytes(n.role.capacity) : 'gateway'}</Table.Td>
-                <Table.Td>{n.dataPartition ? `${fmtBytes(n.dataPartition.available)} / ${fmtBytes(n.dataPartition.total)}` : '—'}</Table.Td>
-                <Table.Td>{n.isUp ? <Badge color="green">up</Badge> : <Badge color="red">down</Badge>}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+        <Table.ScrollContainer minWidth={720}>
+          <Table>
+            <Table.Thead>
+              <Table.Tr><Table.Th>ID</Table.Th><Table.Th>Hostname</Table.Th><Table.Th>Zone</Table.Th><Table.Th>Capacity</Table.Th><Table.Th>Data avail</Table.Th><Table.Th>Resync queue</Table.Th><Table.Th>Trạng thái</Table.Th></Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {status.data!.nodes.map((n) => (
+                <Table.Tr key={n.id}>
+                  <Table.Td><code>{n.id.slice(0, 16)}…</code></Table.Td>
+                  <Table.Td>{n.hostname}</Table.Td>
+                  <Table.Td>{n.role?.zone ?? '—'}</Table.Td>
+                  <Table.Td>{n.role?.capacity != null ? fmtBytes(n.role.capacity) : 'gateway'}</Table.Td>
+                  <Table.Td>{n.dataPartition ? `${fmtBytes(n.dataPartition.available)} / ${fmtBytes(n.dataPartition.total)}` : '—'}</Table.Td>
+                  <Table.Td>{n.resyncQueueLen == null ? '—' : n.resyncQueueLen > 0 ? <Badge color="orange" variant="light">{n.resyncQueueLen.toLocaleString()} blocks</Badge> : 0}</Table.Td>
+                  <Table.Td>{n.isUp ? <Badge color="green">up</Badge> : <Badge color="red">down</Badge>}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
       </Card>
     </Stack>
   )
