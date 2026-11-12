@@ -1,7 +1,11 @@
 # syntax=docker/dockerfile:1
 
-# --- Stage 1: build frontend ---
-FROM node:22-alpine AS frontend
+# Build stages run natively on the build host ($BUILDPLATFORM) and cross-compile
+# the Go binary for each target, so multi-arch builds need no QEMU emulation
+# except for the tiny runtime stage.
+
+# --- Stage 1: build frontend (architecture-independent) ---
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
 WORKDIR /app
 COPY src/web/package.json src/web/package-lock.json ./web/
 RUN cd web && npm ci
@@ -9,8 +13,8 @@ COPY src/web ./web
 # Vite outDir is ../internal/web/dist (relative to web/), so this writes /app/internal/web/dist.
 RUN cd web && npm run build
 
-# --- Stage 2: build Go binary ---
-FROM golang:1.25-alpine AS backend
+# --- Stage 2: cross-compile Go binary for the target platform ---
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS backend
 WORKDIR /src
 COPY src/go.mod src/go.sum ./
 RUN go mod download

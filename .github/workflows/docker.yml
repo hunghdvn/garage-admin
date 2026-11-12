@@ -5,6 +5,12 @@ on:
     branches: [main]
     tags: ['v*']
 
+# A newer push supersedes an in-flight build, so an older run can never
+# overwrite the :main / :latest tags after a newer one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -46,7 +52,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/arm/v7
+          platforms: linux/amd64,linux/arm/v7
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
