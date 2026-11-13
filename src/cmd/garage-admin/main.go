@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/HungHD/garage-admin/internal/crypto"
 	"github.com/HungHD/garage-admin/internal/db"
 	"github.com/HungHD/garage-admin/internal/s3"
+	"github.com/HungHD/garage-admin/internal/usage"
 	"github.com/HungHD/garage-admin/internal/web"
 )
 
@@ -37,6 +39,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("crypto: %v", err)
 	}
+
+	// Hourly usage snapshots for the history charts.
+	go (&usage.Collector{DB: database, Cipher: cipher}).Run(context.Background())
 
 	authSvc := auth.NewService(database)
 	authSvc.SetSecure(cfg.CookieSecure)
