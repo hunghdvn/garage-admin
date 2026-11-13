@@ -3,6 +3,7 @@ package db
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func usageCluster(t *testing.T, d *DB) int64 {
@@ -143,5 +144,40 @@ func TestUsageDeletedWithCluster(t *testing.T) {
 	}
 	if got := bucketTS(t, d, id, "b1", 0); len(got) != 0 {
 		t.Errorf("bucket usage left: %v", got)
+	}
+}
+
+// Every hourly run compacts the whole history, so its cost must stay linear in
+// the number of rows (the NAS has one DB connection that requests wait on).
+func TestCompactUsageScalesLinearly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("timing test")
+	}
+	d := newTestDB(t)
+	id := usageCluster(t, d)
+	tx, err := d.sql.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const days, buckets = 3 * 365, 50
+	for day := int64(0); day < days; day++ {
+		ts := day*86400 + 23*3600 // already compacted: one row per day
+		tx.Exec(`INSERT INTO cluster_usage VALUES (?,?,0,0,0,0)`, id, ts)
+		for b := 0; b < buckets; b++ {
+			tx.Exec(`INSERT INTO bucket_usage VALUES (?,?,?,'',0,0)`, id, "b"+string(rune('A'+b)), ts)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	if err := d.CompactUsage(days * 86400); err != nil {
+		t.Fatal(err)
+	}
+	if el := time.Since(start); el > time.Second {
+		t.Fatalf("CompactUsage over %d rows took %v", days*(buckets+1), el)
+	}
+	if got := len(bucketTS(t, d, id, "bA", 0)); got != days {
+		t.Fatalf("compaction removed daily rows: %d left, want %d", got, days)
 	}
 }

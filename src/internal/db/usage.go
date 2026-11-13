@@ -96,19 +96,23 @@ func (d *DB) BucketUsageSince(clusterID int64, bucketID string, since int64) ([]
 }
 
 // CompactUsage thins snapshots older than cutoff down to the last one of each
-// UTC day (per cluster, and per bucket).
+// UTC day (per cluster, and per bucket). The inner lookup is bounded to the
+// row's own day so it is an index range scan and the cost stays linear in the
+// history size.
 func (d *DB) CompactUsage(cutoff int64) error {
 	if _, err := d.sql.Exec(
 		`DELETE FROM cluster_usage WHERE ts < ?1 AND EXISTS (
 		   SELECT 1 FROM cluster_usage v
-		   WHERE v.cluster_id = cluster_usage.cluster_id AND v.ts < ?1
-		     AND v.ts/86400 = cluster_usage.ts/86400 AND v.ts > cluster_usage.ts)`, cutoff); err != nil {
+		   WHERE v.cluster_id = cluster_usage.cluster_id
+		     AND v.ts > cluster_usage.ts
+		     AND v.ts < MIN(?1, (cluster_usage.ts/86400 + 1) * 86400))`, cutoff); err != nil {
 		return err
 	}
 	_, err := d.sql.Exec(
 		`DELETE FROM bucket_usage WHERE ts < ?1 AND EXISTS (
 		   SELECT 1 FROM bucket_usage v
 		   WHERE v.cluster_id = bucket_usage.cluster_id AND v.bucket_id = bucket_usage.bucket_id
-		     AND v.ts < ?1 AND v.ts/86400 = bucket_usage.ts/86400 AND v.ts > bucket_usage.ts)`, cutoff)
+		     AND v.ts > bucket_usage.ts
+		     AND v.ts < MIN(?1, (bucket_usage.ts/86400 + 1) * 86400))`, cutoff)
 	return err
 }
