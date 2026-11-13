@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -38,7 +37,7 @@ func (s *Server) handleListBuckets(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, detailed)
 		return
 	}
-	if !unsupportedEndpoint(err) {
+	if !garage.IsUnsupportedEndpoint(err) {
 		writeGarageError(w, err)
 		return
 	}
@@ -48,13 +47,6 @@ func (s *Server) handleListBuckets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
-}
-
-// unsupportedEndpoint reports whether Garage rejected the call because it does
-// not know the endpoint (older Garage answers 400 "Unknown API endpoint").
-func unsupportedEndpoint(err error) bool {
-	var ae *garage.APIError
-	return errors.As(err, &ae) && (ae.StatusCode == http.StatusBadRequest || ae.StatusCode == http.StatusNotFound)
 }
 
 func (s *Server) handleGetBucket(w http.ResponseWriter, r *http.Request) {

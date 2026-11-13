@@ -87,6 +87,29 @@ func (c *Client) ListBucketsInfo() ([]BucketInfo, error) {
 	return out, err
 }
 
+// ListBucketsDetailed returns every bucket with sizes and object counts:
+// ListBucketsInfo on Garage >= v2.5, otherwise ListBuckets plus one
+// GetBucketInfo per bucket.
+func (c *Client) ListBucketsDetailed() ([]BucketInfo, error) {
+	out, err := c.ListBucketsInfo()
+	if err == nil || !IsUnsupportedEndpoint(err) {
+		return out, err
+	}
+	list, err := c.ListBuckets()
+	if err != nil {
+		return nil, err
+	}
+	out = make([]BucketInfo, 0, len(list))
+	for _, b := range list {
+		info, err := c.GetBucketInfo(b.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *info)
+	}
+	return out, nil
+}
+
 // GetBucketInfo calls GET /v2/GetBucketInfo?id=.
 func (c *Client) GetBucketInfo(id string) (*BucketInfo, error) {
 	var out BucketInfo

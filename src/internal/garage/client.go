@@ -4,6 +4,7 @@ package garage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,13 @@ func (e *APIError) Error() string {
 		return fmt.Sprintf("garage %d %s: %s", e.StatusCode, e.Code, e.Message)
 	}
 	return fmt.Sprintf("garage %d: %s", e.StatusCode, e.Raw)
+}
+
+// IsUnsupportedEndpoint reports whether Garage rejected a call because it does
+// not know the endpoint (older Garage answers 400 "Unknown API endpoint").
+func IsUnsupportedEndpoint(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) && (ae.StatusCode == http.StatusBadRequest || ae.StatusCode == http.StatusNotFound)
 }
 
 // New creates a client. endpoint is like "http://192.168.101.8:3903".

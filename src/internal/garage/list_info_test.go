@@ -2,6 +2,7 @@ package garage
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -91,5 +92,65 @@ func TestLayoutPreviewAndApplyKeepStatistics(t *testing.T) {
 	}
 	if out, _ := json.Marshal(applied); !strings.Contains(string(out), `"layout":{"version":2}`) {
 		t.Errorf("apply dropped layout: %s", out)
+	}
+}
+
+func TestListBucketsDetailedUsesListBucketsInfo(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/ListBucketsInfo" {
+			t.Errorf("unexpected call %s", r.URL.Path)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte(`[{"id":"b1","globalAliases":["files"],"objects":1,"bytes":10},{"id":"b2","globalAliases":[],"objects":2,"bytes":20}]`))
+	}))
+	defer srv.Close()
+
+	got, err := New(srv.URL, "t").ListBucketsDetailed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Bytes != 10 || got[1].Bytes != 20 {
+		t.Errorf("got %+v", got)
+	}
+}
+
+func TestListBucketsDetailedFallsBack(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/ListBucketsInfo":
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"code":"InvalidRequest","message":"Unknown API endpoint"}`))
+		case "/v2/ListBuckets":
+			w.Write([]byte(`[{"id":"b1","created":"x","globalAliases":["files"],"localAliases":[]}]`))
+		case "/v2/GetBucketInfo":
+			if r.URL.Query().Get("id") != "b1" {
+				t.Errorf("GetBucketInfo id=%q", r.URL.Query().Get("id"))
+			}
+			w.Write([]byte(`{"id":"b1","globalAliases":["files"],"objects":3,"bytes":42}`))
+		default:
+			t.Errorf("unexpected call %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+
+	got, err := New(srv.URL, "t").ListBucketsDetailed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ID != "b1" || got[0].Bytes != 42 || got[0].Objects != 3 {
+		t.Errorf("got %+v", got)
+	}
+}
+
+func TestIsUnsupportedEndpoint(t *testing.T) {
+	cases := map[int]bool{400: true, 404: true, 403: false, 500: false}
+	for code, want := range cases {
+		if got := IsUnsupportedEndpoint(&APIError{StatusCode: code}); got != want {
+			t.Errorf("status %d: got %v want %v", code, got, want)
+		}
+	}
+	if IsUnsupportedEndpoint(io.EOF) {
+		t.Error("non-API error must not count as unsupported")
 	}
 }

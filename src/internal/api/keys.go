@@ -42,7 +42,7 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, out)
 		return
 	}
-	if !unsupportedEndpoint(err) {
+	if !garage.IsUnsupportedEndpoint(err) {
 		writeGarageError(w, err)
 		return
 	}
