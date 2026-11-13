@@ -37,13 +37,14 @@ trên phần cứng yếu như **NAS ARM 32-bit với 1 GB RAM**.
 - Dashboard sức khỏe: trạng thái, số node kết nối, partition, dung lượng trống, tổng bucket và object
 - Danh sách node kèm zone, capacity, dung lượng đĩa và hàng đợi resync
 - Quản lý layout: stage thay đổi role, preview kèm thống kê dung lượng, apply, revert, lịch sử
-- Kết nối node mới vào cluster
+- Lịch sử dung lượng: tự ghi lại dung lượng đã dùng/còn trống và số object mỗi giờ, xem biểu đồ theo giờ (24 giờ) hoặc theo ngày (7 ngày – 1 năm)
 
 **Bucket**
 - Danh sách kèm số object, dung lượng, quota và số key; tạo và xoá bucket
 - Alias toàn cục và alias cục bộ, phân quyền đọc / ghi / owner cho từng key
 - Quota (dung lượng tối đa, số object tối đa), static website hosting, CORS
 - Dọn multipart upload dang dở, tra cứu object
+- Biểu đồ lịch sử dung lượng và số object của từng bucket
 
 **Access key**
 - Tạo key (có thể đặt hạn dùng) hoặc import key có sẵn; secret chỉ hiển thị một lần khi tạo

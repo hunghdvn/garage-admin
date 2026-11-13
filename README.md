@@ -38,12 +38,14 @@ comfortably on low-power hardware such as a **32-bit ARM NAS with 1 GB of RAM**.
 - Node list with zone, capacity, disk usage and resync queue
 - Layout management: stage role changes, preview with capacity statistics, apply, revert, history
 - Connect new nodes to the cluster
+- Usage history: hourly snapshots of used/free space and object count, charted per hour (24 h) or per day (7 days – 1 year)
 
 **Buckets**
 - List with object count, size, quota and key count; create and delete
 - Global and local aliases, per-key read / write / owner permissions
 - Quotas (max size, max objects), static website hosting, CORS rules
 - Clean up incomplete multipart uploads, inspect objects
+- Per-bucket size and object-count history chart
 
 **Access keys**
 - Create (with optional expiry) or import keys; the secret is shown once on creation

@@ -10,6 +10,7 @@ import { api, type BucketInfo, type KeyListItem } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
 import { fmtBytes } from './BucketsPage'
+import { UsageChart } from '../components/UsageChart'
 
 export function BucketDetailPage() {
   const { id = '' } = useParams()
@@ -133,6 +134,8 @@ export function BucketDetailPage() {
         <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><Text size="sm" c="dimmed">Multipart dở</Text><Text fw={700}>{bucket.unfinishedMultipartUploads}</Text></Card></Grid.Col>
         <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><Text size="sm" c="dimmed">Website</Text><Text fw={700}>{bucket.websiteAccess ? 'Bật' : 'Tắt'}</Text></Card></Grid.Col>
       </Grid>
+
+      <UsageChart kind="bucket" bucketId={bucket.id} />
 
       <Card withBorder>
         <Title order={5} mb="sm">Global aliases</Title>

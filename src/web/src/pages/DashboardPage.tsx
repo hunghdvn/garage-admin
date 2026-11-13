@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, type ClusterHealth, type ClusterStatistics, type BucketListItem, type KeyListItem } from '../api/client'
 import { fmtBytes } from './BucketsPage'
+import { UsageChart } from '../components/UsageChart'
 
 function Stat({ label, value }: { label: string; value: number | string }) {
   return (
@@ -41,6 +42,8 @@ export function DashboardPage() {
         {stats.data && <Stat label="Objects" value={stats.data.totalObjectCount} />}
         {stats.data && <Stat label="Tổng dung lượng" value={fmtBytes(stats.data.totalObjectBytes)} />}
       </SimpleGrid>
+
+      {health.data && <UsageChart kind="cluster" />}
 
       <Title order={5} mt="md">Truy cập nhanh</Title>
       <SimpleGrid cols={{ base: 2, md: 4 }}>

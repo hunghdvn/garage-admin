@@ -305,3 +305,26 @@ export interface AdminUser {
   role: 'admin' | 'readonly'
   created_at: string
 }
+
+// Usage history (recorded hourly by garage-admin itself).
+export type UsageRange = '24h' | '7d' | '30d' | '90d' | '365d'
+
+export interface ClusterUsagePoint {
+  ts: number // Unix seconds
+  bytes: number
+  objects: number
+  dataAvail: number
+  bucketCount: number
+}
+
+export interface BucketUsagePoint {
+  ts: number
+  alias: string
+  bytes: number
+  objects: number
+}
+
+export interface UsageSeries<T> {
+  granularity: 'hour' | 'day'
+  points: T[]
+}

@@ -1,0 +1,17 @@
+/* Series colours, validated for CVD separation and 3:1 contrast
+   on Mantine's light card (#fff) and dark card (#2e2e2e). */
+:root {
+  --usage-series-1: #2a78d6;
+  --usage-series-2: #eb6834;
+}
+:root[data-mantine-color-scheme='dark'] {
+  --usage-series-1: #3987e5;
+  --usage-series-2: #d95926;
+}
+.usage-key {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  vertical-align: middle;
+}
