@@ -44,6 +44,7 @@ func (s *Server) Routes() http.Handler {
 		s.mountNodes(r)
 		s.mountFiles(r)
 		s.mountUsers(r)
+		s.mountUsage(r)
 	})
 
 	if s.Static != nil {
