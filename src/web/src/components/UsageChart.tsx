@@ -39,6 +39,16 @@ function byteUnit(max: number): number {
   return i
 }
 
+// Round y-axis ticks from 0: step 1/2/2.5/5 x 10^k, about four intervals.
+function niceTicks(max: number): number[] {
+  if (!(max > 0)) return [0, 1]
+  const raw = max / 4
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((x) => x >= raw)!
+  const n = Math.ceil(max / step - 1e-9)
+  return Array.from({ length: n + 1 }, (_, i) => +(i * step).toFixed(10))
+}
+
 // One row per hour (24h) or per local day, so a missed snapshot shows as a gap
 // instead of the line silently bridging it.
 function buildRows(range: UsageRange, points: Point[]): Row[] {
@@ -96,10 +106,11 @@ export function UsageChart(props: Props) {
   const latest = [...rows].reverse().find((r) => r.bytes != null)
   const filled = rows.filter((r) => r.bytes != null)
 
-  // Chart data in a display unit; the legend and table keep exact values.
-  const unit = metric === 'bytes'
-    ? byteUnit(Math.max(0, ...rows.flatMap((r) => series.map((s) => (r[s.name as keyof Row] as number | null) ?? 0))))
-    : 0
+  // Chart data in a display unit so the axis can use round ticks (1 TB, 2 TB…);
+  // tooltip, legend and table always show exact values.
+  const maxValue = Math.max(0, ...rows.flatMap((r) => series.map((s) => (r[s.name as keyof Row] as number | null) ?? 0)))
+  const unit = metric === 'bytes' ? byteUnit(maxValue) : 0
+  const ticks = niceTicks(maxValue / 1024 ** unit)
   const chartRows = rows.map((r) => {
     const out: Record<string, string | number | null> = { label: r.label }
     for (const s of series) {
@@ -108,11 +119,8 @@ export function UsageChart(props: Props) {
     }
     return out
   })
-  const fmtChart = (v: number | null | undefined) => {
-    if (v == null) return '—'
-    if (metric === 'objects') return fmtCount(v)
-    return `${Number.isInteger(v) ? v : v.toFixed(1)} ${BYTE_UNITS[unit]}`
-  }
+  const fmtChart = (v: number | null | undefined) => (v == null ? '—' : fmt(v * 1024 ** unit))
+  const fmtTick = (v: number) => (metric === 'objects' ? fmtCount(v) : `${+v.toFixed(2)} ${BYTE_UNITS[unit]}`)
 
   return (
     <Card withBorder>
@@ -188,7 +196,7 @@ export function UsageChart(props: Props) {
               tickLine="none"
               valueFormatter={fmtChart}
               xAxisProps={{ minTickGap: 16 }}
-              yAxisProps={{ width: 72 }}
+              yAxisProps={{ width: 72, ticks, domain: [0, ticks[ticks.length - 1]], tickFormatter: fmtTick }}
             />
           )}
         </>
