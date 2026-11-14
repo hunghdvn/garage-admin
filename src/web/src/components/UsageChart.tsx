@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Spinner } from 'h2d-glass-ui'
+import { Button, Card, Select, SelectItem, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Spinner } from 'h2d-glass-ui'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from 'recharts'
 import { IconChartLine, IconTable } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
@@ -113,13 +113,13 @@ export function UsageChart(props: Props) {
           </Button>
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-          <select value={range} onChange={(e) => setRange(e.target.value as UsageRange)} style={{ padding: 4 }}>
-            {RANGES.map(({ value, label }) => (<option key={value} value={value}>{label}</option>))}
-          </select>
-          <select value={metric} onChange={(e) => setMetric(e.target.value as Metric)} style={{ padding: 4 }}>
-            <option value="bytes">{t('usage.size')}</option>
-            <option value="objects">{t('usage.objects')}</option>
-          </select>
+          <Select value={range} onValueChange={(v) => setRange(v as UsageRange)}>
+            {RANGES.map(({ value, label }) => (<SelectItem key={value} value={value}>{label}</SelectItem>))}
+          </Select>
+          <Select value={metric} onValueChange={(v) => setMetric(v as Metric)}>
+            <SelectItem value="bytes">{t('usage.size')}</SelectItem>
+            <SelectItem value="objects">{t('usage.objects')}</SelectItem>
+          </Select>
         </div>
 
         {query.isLoading && <Spinner size="sm" />}
