@@ -1,6 +1,6 @@
 import { Card, Group, Loader, Text, Title, Badge, Stack, SimpleGrid } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { api, type ClusterHealth, type ClusterStatistics, type BucketListItem, type KeyListItem } from '../api/client'
 import { fmtBytes } from './BucketsPage'
 import { UsageChart } from '../components/UsageChart'

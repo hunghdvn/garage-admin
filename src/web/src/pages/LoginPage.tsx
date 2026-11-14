@@ -14,8 +14,15 @@ export function LoginPage() {
     setBusy(true)
     try {
       await login(username, password)
-    } catch {
-      notifications.show({ color: 'red', message: 'Sai tài khoản hoặc mật khẩu' })
+    } catch (err: any) {
+      const status = err?.response?.status
+      const message =
+        status === 429
+          ? 'Quá nhiều lần thử, vui lòng thử lại sau'
+          : status === 401 || status === 400
+            ? 'Sai tài khoản hoặc mật khẩu'
+            : err?.response?.data?.error || 'Đăng nhập thất bại'
+      notifications.show({ color: 'red', message })
     } finally {
       setBusy(false)
     }

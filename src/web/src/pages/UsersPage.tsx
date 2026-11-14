@@ -85,7 +85,7 @@ export function UsersPage() {
       <Modal opened={createOpen} onClose={createCtl.close} title="Tạo user">
         <Stack>
           <TextInput label="Tài khoản" value={username} onChange={(e) => setUsername(e.currentTarget.value)} required />
-          <PasswordInput label="Mật khẩu" value={password} onChange={(e) => setPassword(e.currentTarget.value)} required />
+          <PasswordInput label="Mật khẩu" description="Tối thiểu 8 ký tự" value={password} onChange={(e) => setPassword(e.currentTarget.value)} required />
           <Select label="Vai trò" data={['admin', 'readonly']} value={role} onChange={(v) => setRole(v ?? 'readonly')} allowDeselect={false} />
           <Button onClick={() => createMut.mutate()} loading={createMut.isPending} disabled={!username || !password}>Tạo</Button>
         </Stack>
@@ -93,7 +93,7 @@ export function UsersPage() {
 
       <Modal opened={resetFor != null} onClose={() => setResetFor(null)} title={`Đặt lại mật khẩu: ${resetFor?.username ?? ''}`}>
         <Stack>
-          <PasswordInput label="Mật khẩu mới" value={newPw} onChange={(e) => setNewPw(e.currentTarget.value)} required />
+          <PasswordInput label="Mật khẩu mới" description="Tối thiểu 8 ký tự" value={newPw} onChange={(e) => setNewPw(e.currentTarget.value)} required />
           <Button onClick={() => resetMut.mutate()} loading={resetMut.isPending} disabled={!newPw}>Lưu</Button>
         </Stack>
       </Modal>

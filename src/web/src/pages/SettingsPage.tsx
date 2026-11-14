@@ -52,7 +52,7 @@ export function SettingsPage() {
       notifications.show({ color: 'green', message: 'Đã thêm cluster' })
       close(); setForm(empty)
     },
-    onError: () => notifications.show({ color: 'red', message: 'Thêm cluster thất bại' }),
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Thêm cluster thất bại' }),
   })
 
   const editMut = useMutation({
@@ -62,7 +62,7 @@ export function SettingsPage() {
       notifications.show({ color: 'green', message: 'Đã cập nhật cluster' })
       setEditCluster(null)
     },
-    onError: () => notifications.show({ color: 'red', message: 'Cập nhật cluster thất bại' }),
+    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Cập nhật cluster thất bại' }),
   })
 
   const deleteMut = useMutation({
@@ -159,7 +159,7 @@ export function SettingsPage() {
         <Stack>
           <TextInput label="Tên" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.currentTarget.value })} required />
           <TextInput label="Admin endpoint" value={editForm.admin_endpoint} onChange={(e) => setEditForm({ ...editForm, admin_endpoint: e.currentTarget.value })} required />
-          <TextInput label="Admin token" placeholder="để trống = giữ token cũ" value={editForm.admin_token} onChange={(e) => setEditForm({ ...editForm, admin_token: e.currentTarget.value })} />
+          <TextInput label="Admin token" description="Bắt buộc nhập lại token nếu đổi Admin endpoint" placeholder="để trống = giữ token cũ" value={editForm.admin_token} onChange={(e) => setEditForm({ ...editForm, admin_token: e.currentTarget.value })} />
           <TextInput label="S3 endpoint" value={editForm.s3_endpoint} onChange={(e) => setEditForm({ ...editForm, s3_endpoint: e.currentTarget.value })} />
           <TextInput label="S3 region" value={editForm.s3_region} onChange={(e) => setEditForm({ ...editForm, s3_region: e.currentTarget.value })} />
           <TextInput label="S3 access key" value={editForm.s3_access_key} onChange={(e) => setEditForm({ ...editForm, s3_access_key: e.currentTarget.value })} />

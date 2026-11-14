@@ -6,7 +6,7 @@ import { IconFolderPlus, IconUpload, IconTrash, IconDownload, IconFolder, IconFi
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import { api, type BucketListItem, type FileEntry } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from './BucketsPage'

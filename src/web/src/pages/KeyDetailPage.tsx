@@ -4,7 +4,7 @@ import {
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { IconCopy, IconCheck, IconAlertTriangle } from '@tabler/icons-react'
 import { api, type KeyInfo } from '../api/client'
 import { useAuth } from '../auth/AuthContext'

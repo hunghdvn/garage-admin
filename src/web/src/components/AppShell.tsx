@@ -1,7 +1,7 @@
 import { AppShell as MantineAppShell, Burger, Button, Group, Menu, NavLink, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { IconDashboard, IconSettings, IconLogout, IconBucket, IconKey, IconServer, IconLockAccess, IconTool, IconFiles, IconUserCircle, IconUsers } from '@tabler/icons-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { ClusterSelector } from './ClusterSelector'

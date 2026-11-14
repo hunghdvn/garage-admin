@@ -6,7 +6,7 @@ import { IconPlus, IconTrash, IconDownload, IconCopy, IconCheck } from '@tabler/
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { api, type KeyListItem, type KeyInfo, type Permissions } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'

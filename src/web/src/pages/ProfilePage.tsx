@@ -33,7 +33,7 @@ export function ProfilePage() {
           <Stack>
             <Title order={5}>Đổi mật khẩu</Title>
             <PasswordInput label="Mật khẩu hiện tại" value={current} onChange={(e) => setCurrent(e.currentTarget.value)} required />
-            <PasswordInput label="Mật khẩu mới" value={next} onChange={(e) => setNext(e.currentTarget.value)} required />
+            <PasswordInput label="Mật khẩu mới" description="Tối thiểu 8 ký tự" value={next} onChange={(e) => setNext(e.currentTarget.value)} required />
             <Button type="submit" loading={busy} disabled={!current || !next}>Cập nhật</Button>
           </Stack>
         </form>
