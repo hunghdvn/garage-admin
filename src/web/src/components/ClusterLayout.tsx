@@ -1,30 +1,32 @@
+import { toast, Spinner , Input } from 'h2d-glass-ui'
 import { useState, type ReactNode } from 'react'
 import {
   Alert, Badge, Button, Card, Code, Group, Loader, Modal, NumberInput, Stack, Table, Text, TextInput, Textarea, Title,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ClusterLayoutData, type LayoutHistory, type LayoutPreview, type LayoutStatistics } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from '../pages/BucketsPage'
+import { useTranslation } from 'react-i18next'
 
 // Structured layout computation statistics (Garage >= v2.4).
 function LayoutStats({ s }: { s: LayoutStatistics }) {
+  const { t } = useTranslation()
   const rows: [string, ReactNode][] = [
-    ['Replication factor', s.replicationFactor],
-    ['Zone redundancy đạt được', s.effectiveZoneRedundancy],
-    ['Partition size', s.previousPartitionSize != null && s.previousPartitionSize !== s.partitionSize
-      ? `${fmtBytes(s.partitionSize)} (trước: ${fmtBytes(s.previousPartitionSize)})`
+    [t('clusterLayout.replicationFactor'), s.replicationFactor],
+    [t('clusterLayout.effectiveZoneRedundancy'), s.effectiveZoneRedundancy],
+    [t('clusterLayout.partitionSize'), s.previousPartitionSize != null && s.previousPartitionSize !== s.partitionSize
+      ? `${fmtBytes(s.partitionSize)} (${t('clusterLayout.previous')}: ${fmtBytes(s.previousPartitionSize)})`
       : fmtBytes(s.partitionSize)],
-    ['Dung lượng thô', fmtBytes(s.totalCapacity)],
-    ['Dung lượng dùng được', fmtBytes(s.usableCapacity)],
-    ['Dung lượng hiệu dụng (sau replication)', fmtBytes(s.effectiveCapacity)],
-    ['Partition sẽ di chuyển', s.totalMovedPartitions ?? '—'],
+    [t('clusterLayout.rawCapacity'), fmtBytes(s.totalCapacity)],
+    [t('clusterLayout.usableCapacity'), fmtBytes(s.usableCapacity)],
+    [t('clusterLayout.effectiveCapacity'), fmtBytes(s.effectiveCapacity)],
+    [t('clusterLayout.partitionsMoved'), s.totalMovedPartitions ?? '—'],
   ]
   return (
     <Stack gap="sm">
-      {s.lowPartitionSize && <Alert color="orange">Partition rất nhỏ — capacity các node có thể đang đặt quá thấp.</Alert>}
-      {s.lowUsableCapacity && <Alert color="orange">Không tận dụng được hết dung lượng thô của các node (capacity giữa các zone/node chênh lệch).</Alert>}
+      {s.lowPartitionSize && <Alert color="orange">{t('clusterLayout.lowPartitionSize')}</Alert>}
+      {s.lowUsableCapacity && <Alert color="orange">{t('clusterLayout.lowUsableCapacity')}</Alert>}
       <Table>
         <Table.Tbody>
           {rows.map(([k, v]) => (
@@ -35,19 +37,19 @@ function LayoutStats({ s }: { s: LayoutStatistics }) {
       <Table.ScrollContainer minWidth={520}>
         <Table>
           <Table.Thead>
-            <Table.Tr><Table.Th>Zone / node</Table.Th><Table.Th>Partitions</Table.Th><Table.Th>Mới</Table.Th><Table.Th>Dùng được / thô</Table.Th></Table.Tr>
+            <Table.Tr><Table.Th>{t('clusterLayout.zoneNode')}</Table.Th><Table.Th>{t('clusterLayout.partitions')}</Table.Th><Table.Th>{t('clusterLayout.new')}</Table.Th><Table.Th>{t('clusterLayout.usableRaw')}</Table.Th></Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {s.zones.flatMap((z) => [
               <Table.Tr key={`z-${z.name}`} fw={600}>
                 <Table.Td>{z.name}</Table.Td>
-                <Table.Td>{z.uniquePartitions} unique · {z.totalReplicatedPartitions} replicas</Table.Td>
+                <Table.Td>{z.uniquePartitions} {t('clusterLayout.unique')} · {z.totalReplicatedPartitions} {t('clusterLayout.replicas')}</Table.Td>
                 <Table.Td />
                 <Table.Td>{fmtBytes(z.usableCapacity)} / {fmtBytes(z.totalCapacity)}</Table.Td>
               </Table.Tr>,
               ...z.nodes.map((n) => (
                 <Table.Tr key={`n-${n.id}`}>
-                  <Table.Td pl="lg"><code>{n.id.slice(0, 16)}…</code>{n.tags.length > 0 && <Text span size="xs" c="dimmed"> [{n.tags.join(', ')}]</Text>}</Table.Td>
+                  <Table.Td pl="lg"><code>{n.id.slice(0, 16)}…</code>{n.tags.length > 0 && <span> [{n.tags.join(', ')}]</span>}</Table.Td>
                   <Table.Td>{n.storedPartitions}</Table.Td>
                   <Table.Td>{n.newPartitions}</Table.Td>
                   <Table.Td>{fmtBytes(n.usableCapacity)} / {fmtBytes(n.totalCapacity)}</Table.Td>
@@ -62,6 +64,7 @@ function LayoutStats({ s }: { s: LayoutStatistics }) {
 }
 
 export function ClusterLayout() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
@@ -92,14 +95,14 @@ export function ClusterLayout() {
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [], remove: false,
       }],
     })).data,
-    onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã stage thay đổi' }); setNodeId(''); setZone(''); setCapacity(''); setTags('') },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Stage thất bại' }),
+    onSuccess: () => { refresh(); toast.success(t('clusterLayout.staged')); setNodeId(''); setZone(''); setCapacity(''); setTags('') },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('clusterLayout.stageFailed')),
   })
 
   const previewMut = useMutation({
     mutationFn: async () => (await api.post<LayoutPreview>('/cluster/layout/preview', {})).data,
-    onSuccess: (data) => setPreview({ title: 'Preview layout changes', data }),
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Preview thất bại' }),
+    onSuccess: (data) => setPreview({ title: t('clusterLayout.previewTitle'), data }),
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('clusterLayout.previewFailed')),
   })
 
   const applyMut = useMutation({
@@ -108,25 +111,25 @@ export function ClusterLayout() {
       refresh()
       setApplyOpen(false)
       // Show what the new layout looks like (statistics: Garage >= v2.4).
-      setPreview(data?.statistics || data?.message?.length ? { title: `Đã apply layout v${version}`, data } : null)
-      notifications.show({ color: 'green', message: 'Đã apply layout' })
+      setPreview(data?.statistics || data?.message?.length ? { title: t('clusterLayout.appliedTitle', { version }), data } : null)
+      toast.success(t('clusterLayout.applied'))
     },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Apply thất bại' }),
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('clusterLayout.applyFailed')),
   })
 
   const revertMut = useMutation({
     mutationFn: async () => (await api.post('/cluster/layout/revert', {})).data,
-    onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã revert staged changes' }) },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Revert thất bại' }),
+    onSuccess: () => { refresh(); toast.success(t('clusterLayout.reverted')) },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('clusterLayout.revertFailed')),
   })
 
   const connectMut = useMutation({
     mutationFn: async () => (await api.post('/cluster/connect', { nodes: connectText.split('\n').map((l) => l.trim()).filter(Boolean) })).data,
-    onSuccess: () => { refresh(); setConnectText(''); notifications.show({ color: 'green', message: 'Đã gửi yêu cầu kết nối' }) },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Kết nối thất bại' }),
+    onSuccess: () => { refresh(); setConnectText(''); toast.success(t('clusterLayout.connectSent')) },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('clusterLayout.connectFailed')),
   })
 
-  if (layout.isLoading || !layout.data) return <Loader />
+  if (layout.isLoading || !layout.data) return <Spinner />
   const l = layout.data
   const hasStaged = l.stagedRoleChanges.length > 0
 
@@ -134,19 +137,19 @@ export function ClusterLayout() {
     <Stack>
       <Card withBorder>
         <Group justify="space-between">
-          <Title order={5}>Layout version {l.version}</Title>
-          <Text size="sm" c="dimmed">Partition size: {fmtBytes(l.partitionSize)}</Text>
+          <h5>{t('clusterLayout.layoutVersion', { version: l.version })}</h5>
+          <span>{t('clusterLayout.partitionSize')}: {fmtBytes(l.partitionSize)}</span>
         </Group>
         <Table mt="sm">
           <Table.Thead>
-            <Table.Tr><Table.Th>Node</Table.Th><Table.Th>Zone</Table.Th><Table.Th>Capacity</Table.Th><Table.Th>Partitions</Table.Th><Table.Th>Tags</Table.Th></Table.Tr>
+            <Table.Tr><Table.Th>{t('nodeMaintenance.node')}</Table.Th><Table.Th>{t('clusterOverview.zone')}</Table.Th><Table.Th>{t('clusterLayout.capacity')}</Table.Th><Table.Th>{t('clusterLayout.partitions')}</Table.Th><Table.Th>{t('clusterLayout.tags')}</Table.Th></Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {l.roles.map((role) => (
               <Table.Tr key={role.id}>
                 <Table.Td><code>{role.id.slice(0, 16)}…</code></Table.Td>
                 <Table.Td>{role.zone}</Table.Td>
-                <Table.Td>{role.capacity != null ? fmtBytes(role.capacity) : 'gateway'}</Table.Td>
+                <Table.Td>{role.capacity != null ? fmtBytes(role.capacity) : t('nodeMaintenance.gateway')}</Table.Td>
                 <Table.Td>{role.storedPartitions}</Table.Td>
                 <Table.Td>{role.tags.join(', ') || '—'}</Table.Td>
               </Table.Tr>
@@ -156,18 +159,18 @@ export function ClusterLayout() {
       </Card>
 
       {hasStaged && (
-        <Alert color="yellow" title="Có thay đổi đang chờ (staged)">
+        <Alert color="yellow" title={t('clusterLayout.stagedChanges')}>
           <Stack gap="xs">
             {l.stagedRoleChanges.map((c) => (
-              <Text key={c.id} size="sm">
-                <code>{c.id.slice(0, 12)}…</code> — {c.remove ? 'REMOVE' : `zone=${c.zone}, capacity=${c.capacity != null ? fmtBytes(c.capacity) : 'gateway'}, tags=[${c.tags.join(', ')}]`}
-              </Text>
+              <span key={c.id}>
+                <code>{c.id.slice(0, 12)}…</code> — {c.remove ? 'REMOVE' : `zone=${c.zone}, capacity=${c.capacity != null ? fmtBytes(c.capacity) : t('nodeMaintenance.gateway')}, tags=[${c.tags.join(', ')}]`}
+              </span>
             ))}
             {isAdmin && (
               <Group mt="xs">
-                <Button variant="light" onClick={() => previewMut.mutate()} loading={previewMut.isPending}>Preview</Button>
-                <Button color="green" onClick={() => setApplyOpen(true)}>Apply (v{l.version + 1})</Button>
-                <Button color="red" variant="light" onClick={() => revertMut.mutate()} loading={revertMut.isPending}>Revert</Button>
+                <Button variant="light" onClick={() => previewMut.mutate()} loading={previewMut.isPending}>{t('clusterLayout.preview')}</Button>
+                <Button color="green" onClick={() => setApplyOpen(true)}>{t('clusterLayout.apply', { version: l.version + 1 })}</Button>
+                <Button color="red" variant="light" onClick={() => revertMut.mutate()} loading={revertMut.isPending}>{t('clusterLayout.revert')}</Button>
               </Group>
             )}
           </Stack>
@@ -176,23 +179,23 @@ export function ClusterLayout() {
 
       {isAdmin && (
         <Card withBorder>
-          <Title order={5} mb="sm">Stage thay đổi role cho node</Title>
-          <Text size="xs" c="dimmed" mb="xs">Đặt capacity (bytes) cho node lưu trữ, để trống = gateway. ID node lấy từ tab Overview.</Text>
+          <h5>{t('clusterLayout.stageRoleChange')}</h5>
+          <span>{t('clusterLayout.stageRoleHint')}</span>
           <Group align="end">
-            <TextInput label="Node ID" value={nodeId} onChange={(e) => setNodeId(e.currentTarget.value)} w={260} />
-            <TextInput label="Zone" value={zone} onChange={(e) => setZone(e.currentTarget.value)} w={120} />
-            <NumberInput label="Capacity (bytes)" value={capacity} onChange={(v) => setCapacity(typeof v === 'number' ? v : '')} w={180} min={0} />
-            <TextInput label="Tags (phẩy)" value={tags} onChange={(e) => setTags(e.currentTarget.value)} w={160} />
-            <Button onClick={() => stageMut.mutate()} loading={stageMut.isPending} disabled={!nodeId || !zone}>Stage</Button>
+            <Input value={nodeId} onChange={(e) => setNodeId(e.currentTarget.value)} />
+            <Input value={zone} onChange={(e) => setZone(e.currentTarget.value)} />
+            <NumberInput label={t('clusterLayout.capacityBytes')} value={capacity} onChange={(v) => setCapacity(typeof v === 'number' ? v : '')} min={0} />
+            <Input value={tags} onChange={(e) => setTags(e.currentTarget.value)} />
+            <Button onClick={() => stageMut.mutate()} loading={stageMut.isPending} disabled={!nodeId || !zone}>{t('clusterLayout.stage')}</Button>
           </Group>
         </Card>
       )}
 
       <Card withBorder>
-        <Title order={5} mb="sm">Lịch sử layout</Title>
+        <h5>{t('clusterLayout.layoutHistory')}</h5>
         <Table>
           <Table.Thead>
-            <Table.Tr><Table.Th>Version</Table.Th><Table.Th>Trạng thái</Table.Th><Table.Th>Storage nodes</Table.Th><Table.Th>Gateway nodes</Table.Th></Table.Tr>
+            <Table.Tr><Table.Th>{t('clusterLayout.version')}</Table.Th><Table.Th>{t('clusterLayout.status')}</Table.Th><Table.Th>{t('clusterLayout.storageNodes')}</Table.Th><Table.Th>{t('clusterLayout.gatewayNodes')}</Table.Th></Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {history.data?.versions.map((v) => (
@@ -209,10 +212,10 @@ export function ClusterLayout() {
 
       {isAdmin && (
         <Card withBorder>
-          <Title order={5} mb="sm">Kết nối node</Title>
-          <Text size="xs" c="dimmed" mb="xs">Mỗi dòng một node: <code>node_id@host:port</code></Text>
+          <h5>{t('clusterLayout.connectNode')}</h5>
+          <span>{t('clusterLayout.connectNodeHint')}</span>
           <Textarea value={connectText} onChange={(e) => setConnectText(e.currentTarget.value)} minRows={2} autosize placeholder="abcdef123…@192.168.1.50:3901" />
-          <Button mt="sm" variant="light" onClick={() => connectMut.mutate()} loading={connectMut.isPending} disabled={!connectText.trim()}>Kết nối</Button>
+          <Button mt="sm" variant="light" onClick={() => connectMut.mutate()} loading={connectMut.isPending} disabled={!connectText.trim()}>{t('clusterLayout.connect')}</Button>
         </Card>
       )}
 
@@ -220,16 +223,16 @@ export function ClusterLayout() {
         {preview && (
           <Stack>
             {preview.data.statistics && <LayoutStats s={preview.data.statistics} />}
-            {preview.data.message?.length > 0 && <Code block>{preview.data.message.join('\n')}</Code>}
+            {preview.data.message?.length > 0 && <code>{preview.data.message.join('\n')}</code>}
           </Stack>
         )}
       </Modal>
 
-      <Modal opened={applyOpen} onClose={() => setApplyOpen(false)} title="Xác nhận apply layout">
+      <Modal opened={applyOpen} onClose={() => setApplyOpen(false)} title={t('clusterLayout.confirmApply')}>
         <Stack>
-          <Alert color="orange">Apply sẽ ghi layout mới (version {l.version + 1}) và bắt đầu di chuyển dữ liệu. Hành động này khó hoàn tác.</Alert>
+          <Alert color="orange">{t('clusterLayout.applyWarning', { version: l.version + 1 })}</Alert>
           <Button color="green" onClick={() => applyMut.mutate(l.version + 1)} loading={applyMut.isPending}>
-            Apply version {l.version + 1}
+            {t('clusterLayout.applyVersion', { version: l.version + 1 })}
           </Button>
         </Stack>
       </Modal>

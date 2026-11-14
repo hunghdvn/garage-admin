@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Button, Card, Center, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Field, Input, toast } from 'h2d-glass-ui'
 import { useAuth } from '../auth/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 export function LoginPage() {
   const { login } = useAuth()
+  const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -18,28 +19,34 @@ export function LoginPage() {
       const status = err?.response?.status
       const message =
         status === 429
-          ? 'Quá nhiều lần thử, vui lòng thử lại sau'
+          ? t('login.tooMany')
           : status === 401 || status === 400
-            ? 'Sai tài khoản hoặc mật khẩu'
-            : err?.response?.data?.error || 'Đăng nhập thất bại'
-      notifications.show({ color: 'red', message })
+            ? t('login.invalidCredentials')
+            : err?.response?.data?.error || t('login.failed')
+      toast.error(message)
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Center h="100vh">
-      <Card withBorder shadow="md" p="xl" w={360}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Card style={{ width: 360 }}>
         <form onSubmit={submit}>
-          <Stack>
-            <Title order={3} ta="center">Garage Admin</Title>
-            <TextInput label="Tài khoản" value={username} onChange={(e) => setUsername(e.currentTarget.value)} required />
-            <PasswordInput label="Mật khẩu" value={password} onChange={(e) => setPassword(e.currentTarget.value)} required />
-            <Button type="submit" loading={busy} fullWidth>Đăng nhập</Button>
-          </Stack>
+          <CardHeader><CardTitle>Garage Admin</CardTitle></CardHeader>
+          <CardContent>
+            <Field label={t('login.username')} required>
+              <Input value={username} onChange={(e) => setUsername(e.currentTarget.value)} required />
+            </Field>
+            <Field label={t('login.password')} required>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} required />
+            </Field>
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" disabled={busy} style={{ width: '100%' }}>{t('login.submit')}</Button>
+          </CardFooter>
         </form>
       </Card>
-    </Center>
+    </div>
   )
 }

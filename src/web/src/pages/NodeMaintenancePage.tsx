@@ -1,16 +1,18 @@
+import { toast, Spinner , Input } from 'h2d-glass-ui'
 import { useEffect, useState } from 'react'
 import {
   Alert, Anchor, Badge, Button, Card, Code, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Textarea, Title,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, firstNode, type ClusterStatus, type MultiNode, type NodeInfoData, type Worker } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from './BucketsPage'
+import { useTranslation } from 'react-i18next'
 
 const REPAIR_TYPES = ['tables', 'blocks', 'versions', 'multipartUploads', 'blockRefs', 'blockRc', 'rebalance', 'aliases', 'clearResyncQueue']
 
 export function NodeMaintenancePage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
@@ -56,28 +58,28 @@ export function NodeMaintenancePage() {
     try {
       const data = (await api.post('/nodes/workers/info', { id: wid }, { params: { node } })).data
       setWorkerDetail(data)
-    } catch (e: any) { notifications.show({ color: 'red', message: e?.response?.data?.error || 'Lỗi' }) }
+    } catch (e: any) { toast.error(e?.response?.data?.error || t('common.error')) }
   }
   async function lookupBlock() {
     try {
       const data = (await api.post('/nodes/blocks/info', { block_hash: blockHash }, { params: { node } })).data
       setBlockInfo(data)
-    } catch (e: any) { notifications.show({ color: 'red', message: e?.response?.data?.error || 'Lỗi' }) }
+    } catch (e: any) { toast.error(e?.response?.data?.error || t('common.error')) }
   }
 
   const mutate = (fn: () => Promise<{ data?: { error?: Record<string, string> } }>, ok: string) =>
     fn().then((res) => {
       const errMap = res?.data?.error
       if (errMap && Object.keys(errMap).length > 0) {
-        notifications.show({ color: 'red', message: String(Object.values(errMap)[0]) })
+        toast.error(String(Object.values(errMap)[0]))
         return
       }
-      notifications.show({ color: 'green', message: ok })
+      toast.success(ok)
       qc.invalidateQueries({ queryKey: ['node-workers', node] })
       qc.invalidateQueries({ queryKey: ['node-block-errors', node] })
-    }).catch((e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Thao tác thất bại' }))
+    }).catch((e: any) => toast.error(e?.response?.data?.error || t('nodeMaintenance.operationFailed')))
 
-  if (status.isLoading) return <Loader />
+  if (status.isLoading) return <Spinner />
   const nodeOptions = (status.data?.nodes ?? []).map((n) => ({ value: n.id, label: `${n.hostname} (${n.id.slice(0, 12)}…)` }))
   const nodeInfo = firstNode(info.data, node)
   const nodeErr = info.data?.error?.[node]
@@ -87,65 +89,65 @@ export function NodeMaintenancePage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Node Maintenance</Title>
-        <Select w={320} data={nodeOptions} value={node || null} onChange={(v) => v && setNode(v)} allowDeselect={false} />
+        <h3>{t('nodeMaintenance.title')}</h3>
+        <Select data={nodeOptions} value={node || null} onChange={(v) => v && setNode(v)} allowDeselect={false} />
       </Group>
 
       <Card withBorder>
-        <Title order={5} mb="sm">Thông tin node</Title>
+        <h5>{t('nodeMaintenance.nodeInfo')}</h5>
         {nodeInfo ? (
           <Stack gap={4}>
-            <Group><Text w={160} c="dimmed">Hostname</Text><Text>{nodeInfo.hostname}</Text></Group>
-            <Group><Text w={160} c="dimmed">Garage version</Text><Badge>{nodeInfo.garageVersion}</Badge></Group>
-            <Group><Text w={160} c="dimmed">DB engine</Text><Text>{nodeInfo.dbEngine}</Text></Group>
-            <Group><Text w={160} c="dimmed">Rust</Text><Text>{nodeInfo.rustVersion}</Text></Group>
-            <Group align="start"><Text w={160} c="dimmed">Features</Text><Group gap={4}>{nodeInfo.garageFeatures.map((f) => <Badge key={f} variant="light" size="sm">{f}</Badge>)}</Group></Group>
+            <Group><span>{t('nodeMaintenance.hostname')}</span><span>{nodeInfo.hostname}</span></Group>
+            <Group><span>{t('nodeMaintenance.garageVersion')}</span><Badge>{nodeInfo.garageVersion}</Badge></Group>
+            <Group><span>{t('nodeMaintenance.dbEngine')}</span><span>{nodeInfo.dbEngine}</span></Group>
+            <Group><span>{t('nodeMaintenance.rust')}</span><span>{nodeInfo.rustVersion}</span></Group>
+            <Group align="start"><span>{t('nodeMaintenance.features')}</span><Group gap={4}>{nodeInfo.garageFeatures.map((f) => <Badge key={f} variant="light" size="sm">{f}</Badge>)}</Group></Group>
             {/* Garage >= v2.4 */}
-            {nodeInfo.addr && <Group><Text w={160} c="dimmed">Địa chỉ RPC</Text><Code>{nodeInfo.addr}</Code></Group>}
+            {nodeInfo.addr && <Group><span>{t('nodeMaintenance.rpcAddress')}</span><code>{nodeInfo.addr}</code></Group>}
             {nodeInfo.isUp !== undefined && (
-              <Group><Text w={160} c="dimmed">Trạng thái</Text><Group gap={4}>
-                {nodeInfo.isUp ? <Badge color="green">up</Badge> : <Badge color="red">down</Badge>}
-                {nodeInfo.draining && <Badge color="orange">draining</Badge>}
+              <Group><span>{t('nodeMaintenance.status')}</span><Group gap={4}>
+                {nodeInfo.isUp ? <Badge color="green">{t('nodeMaintenance.up')}</Badge> : <Badge color="red">{t('nodeMaintenance.down')}</Badge>}
+                {nodeInfo.draining && <Badge color="orange">{t('nodeMaintenance.draining')}</Badge>}
               </Group></Group>
             )}
             {nodeInfo.role !== undefined && (
-              <Group><Text w={160} c="dimmed">Role</Text><Text>{nodeInfo.role
-                ? `zone ${nodeInfo.role.zone} · ${nodeInfo.role.capacity != null ? fmtBytes(nodeInfo.role.capacity) : 'gateway'}${nodeInfo.role.tags.length ? ` · tags: ${nodeInfo.role.tags.join(', ')}` : ''}`
-                : 'chưa gán role'}</Text></Group>
+              <Group><span>{t('nodeMaintenance.role')}</span><span>{nodeInfo.role
+                ? `zone ${nodeInfo.role.zone} · ${nodeInfo.role.capacity != null ? fmtBytes(nodeInfo.role.capacity) : t('nodeMaintenance.gateway')} · ${nodeInfo.role.tags.length ? `${t('nodeMaintenance.tags')}: ${nodeInfo.role.tags.join(', ')}` : ''}`
+                : t('nodeMaintenance.noRole')}</span></Group>
             )}
-            {nodeInfo.dataPartition && <Group><Text w={160} c="dimmed">Data partition</Text><Text>{fmtBytes(nodeInfo.dataPartition.available)} trống / {fmtBytes(nodeInfo.dataPartition.total)}</Text></Group>}
-            {nodeInfo.metadataPartition && <Group><Text w={160} c="dimmed">Metadata partition</Text><Text>{fmtBytes(nodeInfo.metadataPartition.available)} trống / {fmtBytes(nodeInfo.metadataPartition.total)}</Text></Group>}
+            {nodeInfo.dataPartition && <Group><span>{t('nodeMaintenance.dataPartition')}</span><span>{fmtBytes(nodeInfo.dataPartition.available)} {t('nodeMaintenance.free')} / {fmtBytes(nodeInfo.dataPartition.total)}</span></Group>}
+            {nodeInfo.metadataPartition && <Group><span>{t('nodeMaintenance.metadataPartition')}</span><span>{fmtBytes(nodeInfo.metadataPartition.available)} {t('nodeMaintenance.free')} / {fmtBytes(nodeInfo.metadataPartition.total)}</span></Group>}
             {/* Garage >= v2.5: what S3/K2V clients should use to reach this node */}
             {nodeInfo.connectionParameters && (
-              <Group align="start"><Text w={160} c="dimmed">Kết nối client</Text>
+              <Group align="start"><span>{t('nodeMaintenance.clientConnection')}</span>
                 <Stack gap={2}>
-                  <Text size="sm">Region: <Code>{nodeInfo.connectionParameters.region}</Code></Text>
-                  {nodeInfo.connectionParameters.s3Endpoint && <Text size="sm">S3 endpoint: <Code>{nodeInfo.connectionParameters.s3Endpoint}</Code></Text>}
-                  {nodeInfo.connectionParameters.s3UsePathStyle != null && <Text size="sm">Path-style: <Code>{nodeInfo.connectionParameters.s3UsePathStyle ? 'có' : 'không'}</Code></Text>}
-                  {nodeInfo.connectionParameters.k2vEndpoint && <Text size="sm">K2V endpoint: <Code>{nodeInfo.connectionParameters.k2vEndpoint}</Code></Text>}
+                  <span>{t('nodeMaintenance.region')}: <code>{nodeInfo.connectionParameters.region}</code></span>
+                  {nodeInfo.connectionParameters.s3Endpoint && <span>{t('nodeMaintenance.s3Endpoint')}: <code>{nodeInfo.connectionParameters.s3Endpoint}</code></span>}
+                  {nodeInfo.connectionParameters.s3UsePathStyle != null && <span>{t('nodeMaintenance.pathStyle')}: <code>{nodeInfo.connectionParameters.s3UsePathStyle ? t('common.yes') : t('common.no')}</code></span>}
+                  {nodeInfo.connectionParameters.k2vEndpoint && <span>{t('nodeMaintenance.k2vEndpoint')}: <code>{nodeInfo.connectionParameters.k2vEndpoint}</code></span>}
                 </Stack>
               </Group>
             )}
           </Stack>
-        ) : nodeErr ? <Alert color="red">{nodeErr}</Alert> : <Loader size="sm" />}
+        ) : nodeErr ? <Alert color="red">{nodeErr}</Alert> : <Spinner size="sm" />}
       </Card>
 
       <Card withBorder>
-        <Title order={5} mb="sm">Thống kê</Title>
-        <Code block>{firstNode(stats.data, node)?.freeform ?? '…'}</Code>
+        <h5>{t('nodeMaintenance.statistics')}</h5>
+        <code>{firstNode(stats.data, node)?.freeform ?? '…'}</code>
       </Card>
 
       <Card withBorder>
-        <Title order={5} mb="sm">Workers ({workerList.length})</Title>
+        <h5>{t('nodeMaintenance.workers')} ({workerList.length})</h5>
         <Table>
           <Table.Thead>
-            <Table.Tr><Table.Th>ID</Table.Th><Table.Th>Tên</Table.Th><Table.Th>Trạng thái</Table.Th><Table.Th>Lỗi</Table.Th><Table.Th>Queue</Table.Th><Table.Th>Tranquility</Table.Th></Table.Tr>
+            <Table.Tr><Table.Th>ID</Table.Th><Table.Th>{t('nodeMaintenance.name')}</Table.Th><Table.Th>{t('nodeMaintenance.state')}</Table.Th><Table.Th>{t('nodeMaintenance.errors')}</Table.Th><Table.Th>{t('nodeMaintenance.queue')}</Table.Th><Table.Th>{t('nodeMaintenance.tranquility')}</Table.Th></Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {workerList.map((wk) => (
               <Table.Tr key={wk.id}>
                 <Table.Td>{wk.id}</Table.Td>
-                <Table.Td><Anchor onClick={() => showWorker(wk.id)}>{wk.name}</Anchor></Table.Td>
+                <Table.Td><a onClick={() => showWorker(wk.id)}>{wk.name}</a></Table.Td>
                 <Table.Td><Badge variant="light" color={wk.state === 'busy' ? 'blue' : wk.errors > 0 ? 'red' : 'gray'}>{wk.state}</Badge></Table.Td>
                 <Table.Td>{wk.errors}</Table.Td>
                 <Table.Td>{wk.queueLength}</Table.Td>
@@ -158,72 +160,72 @@ export function NodeMaintenancePage() {
 
       {isAdmin && (
         <Card withBorder>
-          <Title order={5} mb="sm">Tinh chỉnh worker</Title>
-          <Text size="xs" c="dimmed" mb="xs">Ví dụ: <code>resync-tranquility</code> = <code>2</code>, <code>resync-worker-count</code> = <code>4</code></Text>
+          <h5>{t('nodeMaintenance.tuneWorker')}</h5>
+          <span>{t('nodeMaintenance.tuneWorkerExample')}</span>
           <Group align="end">
-            <TextInput label="Variable" value={wvar} onChange={(e) => setWvar(e.currentTarget.value)} w={240} />
-            <TextInput label="Value" value={wval} onChange={(e) => setWval(e.currentTarget.value)} w={140} />
-            <Button onClick={() => mutate(() => api.post('/nodes/workers/variable', { variable: wvar, value: wval }, { params: { node } }), 'Đã set worker variable')} disabled={!wvar}>Set</Button>
+            <Input value={wvar} onChange={(e) => setWvar(e.currentTarget.value)} />
+            <Input value={wval} onChange={(e) => setWval(e.currentTarget.value)} />
+            <Button onClick={() => mutate(() => api.post('/nodes/workers/variable', { variable: wvar, value: wval }, { params: { node } }), t('nodeMaintenance.workerVariableSet'))} disabled={!wvar}>{t('common.set')}</Button>
           </Group>
         </Card>
       )}
 
       {isAdmin && (
         <Card withBorder>
-          <Title order={5} mb="sm">Bảo trì</Title>
+          <h5>{t('nodeMaintenance.maintenance')}</h5>
           <Group align="end">
-            <Button variant="light" onClick={() => setConfirm({ title: 'Tạo metadata snapshot trên node này?', run: () => mutate(() => api.post('/nodes/snapshot', {}, { params: { node } }), 'Đã tạo snapshot') })}>Metadata snapshot</Button>
-            <Select label="Repair type" data={REPAIR_TYPES} value={repairType} onChange={setRepairType} w={200} />
-            <Button color="orange" onClick={() => setConfirm({ title: `Chạy repair "${repairType}" trên node này?`, run: () => mutate(() => api.post('/nodes/repair', { repair_type: repairType }, { params: { node } }), 'Đã khởi chạy repair') })} disabled={!repairType}>Launch repair</Button>
+            <Button variant="light" onClick={() => setConfirm({ title: t('nodeMaintenance.metadataSnapshotConfirm'), run: () => mutate(() => api.post('/nodes/snapshot', {}, { params: { node } }), t('nodeMaintenance.snapshotCreated')) })}>{t('nodeMaintenance.metadataSnapshot')}</Button>
+            <Select label={t('nodeMaintenance.repairType')} data={REPAIR_TYPES} value={repairType} onChange={setRepairType} />
+            <Button color="orange" onClick={() => setConfirm({ title: t('nodeMaintenance.launchRepairConfirm', { type: repairType }), run: () => mutate(() => api.post('/nodes/repair', { repair_type: repairType }, { params: { node } }), t('nodeMaintenance.repairLaunched')) })} disabled={!repairType}>{t('nodeMaintenance.launchRepair')}</Button>
           </Group>
         </Card>
       )}
 
       <Card withBorder>
-        <Group justify="space-between" mb="sm">
-          <Title order={5}>Block errors ({errList.length})</Title>
+        <Group justify="space-between">
+          <h5>{t('nodeMaintenance.blockErrors')} ({errList.length})</h5>
           {isAdmin && errList.length > 0 && (
-            <Button size="xs" variant="light" onClick={() => setConfirm({ title: 'Retry resync tất cả block lỗi?', run: () => mutate(() => api.post('/nodes/blocks/retry', { all: true }, { params: { node } }), 'Đã yêu cầu retry resync') })}>Retry tất cả</Button>
+            <Button size="xs" variant="light" onClick={() => setConfirm({ title: t('nodeMaintenance.retryAllConfirm'), run: () => mutate(() => api.post('/nodes/blocks/retry', { all: true }, { params: { node } }), t('nodeMaintenance.retryRequested')) })}>{t('nodeMaintenance.retryAll')}</Button>
           )}
         </Group>
-        {errList.length === 0 ? <Text size="sm" c="dimmed">Không có block lỗi.</Text> : <Code block>{JSON.stringify(errList, null, 2)}</Code>}
+        {errList.length === 0 ? <span>{t('nodeMaintenance.noBlockErrors')}</span> : <code>{JSON.stringify(errList, null, 2)}</code>}
         {isAdmin && (
           <Stack mt="md">
-            <Text size="sm" fw={600}>Purge blocks (nguy hiểm)</Text>
-            <Text size="xs" c="dimmed">Mỗi dòng một block hash. Purge xóa vĩnh viễn mọi object tham chiếu các block này.</Text>
+            <span>{t('nodeMaintenance.purgeBlocks')}</span>
+            <span>{t('nodeMaintenance.purgeBlocksDesc')}</span>
             <Textarea value={purgeText} onChange={(e) => setPurgeText(e.currentTarget.value)} minRows={2} autosize placeholder="hash..." />
-            <Button color="red" w={160} disabled={!purgeText.trim()}
+            <Button color="red" disabled={!purgeText.trim()}
               onClick={() => setConfirm({
-                title: 'XÓA VĨNH VIỄN các block đã nhập? Không thể hoàn tác.',
-                run: () => mutate(() => api.post('/nodes/blocks/purge', { block_hashes: purgeText.split('\n').map((l) => l.trim()).filter(Boolean) }, { params: { node } }), 'Đã purge blocks'),
+                title: t('nodeMaintenance.purgeConfirm'),
+                run: () => mutate(() => api.post('/nodes/blocks/purge', { block_hashes: purgeText.split('\n').map((l) => l.trim()).filter(Boolean) }, { params: { node } }), t('nodeMaintenance.purged')),
               })}>
-              Purge
+              {t('nodeMaintenance.purge')}
             </Button>
           </Stack>
         )}
       </Card>
 
       <Card withBorder>
-        <Title order={5} mb="sm">Tra cứu block</Title>
+        <h5>{t('nodeMaintenance.blockLookup')}</h5>
         <Group align="end">
-          <TextInput label="Block hash" value={blockHash} onChange={(e) => setBlockHash(e.currentTarget.value)} w={360} />
-          <Button variant="light" onClick={lookupBlock} disabled={!blockHash}>Tra cứu</Button>
+          <Input value={blockHash} onChange={(e) => setBlockHash(e.currentTarget.value)} />
+          <Button variant="light" onClick={lookupBlock} disabled={!blockHash}>{t('nodeMaintenance.lookup')}</Button>
         </Group>
-        {blockInfo != null && <Code block mt="sm">{JSON.stringify(blockInfo, null, 2)}</Code>}
+        {blockInfo != null && <code>{JSON.stringify(blockInfo, null, 2)}</code>}
       </Card>
 
-      <Modal opened={confirm != null} onClose={() => setConfirm(null)} title="Xác nhận">
+      <Modal opened={confirm != null} onClose={() => setConfirm(null)} title={t('common.confirm')}>
         <Stack>
           <Alert color="orange">{confirm?.title}</Alert>
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setConfirm(null)}>Hủy</Button>
-            <Button color="red" onClick={() => { confirm?.run(); setConfirm(null) }}>Xác nhận</Button>
+            <Button variant="default" onClick={() => setConfirm(null)}>{t('common.cancel')}</Button>
+            <Button color="red" onClick={() => { confirm?.run(); setConfirm(null) }}>{t('common.confirm')}</Button>
           </Group>
         </Stack>
       </Modal>
 
-      <Modal opened={workerDetail != null} onClose={() => setWorkerDetail(null)} title="Chi tiết worker" size="lg">
-        <Code block>{JSON.stringify(workerDetail, null, 2)}</Code>
+      <Modal opened={workerDetail != null} onClose={() => setWorkerDetail(null)} title={t('nodeMaintenance.workerDetail')} size="lg">
+        <code>{JSON.stringify(workerDetail, null, 2)}</code>
       </Modal>
     </Stack>
   )

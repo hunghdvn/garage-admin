@@ -1,16 +1,18 @@
+import { toast , Input } from 'h2d-glass-ui'
 import { useState } from 'react'
 import {
   ActionIcon, Alert, Badge, Button, Card, Code, CopyButton, Group, Modal, Stack, Table, Text, TextInput, Title,
 } from '@mantine/core'
 import { IconPlus, IconTrash, IconCopy, IconCheck, IconEdit } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type AdminToken } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
+import { useTranslation } from 'react-i18next'
 
 export function AdminTokensPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
@@ -39,51 +41,51 @@ export function AdminTokensPage() {
       close(); setName(''); setScope('*'); setExpiration('')
       setCreated(data)
     },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Tạo token thất bại' }),
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('adminTokens.createFailed')),
   })
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => api.delete(`/admin-tokens/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-tokens'] }); notifications.show({ color: 'green', message: 'Đã xóa token' }) },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Xóa thất bại' }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-tokens'] }); toast.success(t('adminTokens.deleted')) },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('common.deleteFailed')),
   })
 
   const editMut = useMutation({
     mutationFn: async () => (await api.post(`/admin-tokens/${editFor!.id}`, { name: editName, scope: editScope.split(',').map((s) => s.trim()).filter(Boolean) })).data,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-tokens'] }); setEditFor(null); notifications.show({ color: 'green', message: 'Đã cập nhật token' }) },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Cập nhật thất bại' }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-tokens'] }); setEditFor(null); toast.success(t('adminTokens.updated')) },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('common.updateFailed')),
   })
-  function openEdit(t: AdminToken) { setEditFor(t); setEditName(t.name); setEditScope(t.scope.join(', ')) }
+  function openEdit(tkn: AdminToken) { setEditFor(tkn); setEditName(tkn.name); setEditScope(tkn.scope.join(', ')) }
 
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Admin Tokens</Title>
-        {isAdmin && <Button leftSection={<IconPlus size={16} />} onClick={open}>Tạo token</Button>}
+        <h3>{t('adminTokens.title')}</h3>
+        {isAdmin && <Button leftSection={<IconPlus size={16} />} onClick={open}>{t('adminTokens.createToken')}</Button>}
       </Group>
 
       <Card withBorder>
         <Table highlightOnHover>
           <Table.Thead>
-            <Table.Tr><Table.Th>Tên</Table.Th><Table.Th>Scope</Table.Th><Table.Th>Hết hạn</Table.Th><Table.Th>Trạng thái</Table.Th><Table.Th /></Table.Tr>
+            <Table.Tr><Table.Th>{t('adminTokens.name')}</Table.Th><Table.Th>{t('adminTokens.scope')}</Table.Th><Table.Th>{t('adminTokens.expiration')}</Table.Th><Table.Th>{t('adminTokens.status')}</Table.Th><Table.Th /></Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {tokens?.map((t, i) => (
-              <Table.Tr key={t.id ?? `cfg-${i}`}>
-                <Table.Td>{t.name}</Table.Td>
-                <Table.Td>{t.scope.map((s) => <Badge key={s} variant="light" mr={4}>{s}</Badge>)}</Table.Td>
-                <Table.Td>{t.expiration ? new Date(t.expiration).toLocaleString() : '∞'}</Table.Td>
+            {tokens?.map((tkn, i) => (
+              <Table.Tr key={tkn.id ?? `cfg-${i}`}>
+                <Table.Td>{tkn.name}</Table.Td>
+                <Table.Td>{tkn.scope.map((s) => <Badge key={s} variant="light" mr={4}>{s}</Badge>)}</Table.Td>
+                <Table.Td>{tkn.expiration ? new Date(tkn.expiration).toLocaleString() : '∞'}</Table.Td>
                 <Table.Td>
-                  {t.id === null ? <Badge color="gray">config file</Badge>
-                    : t.expired ? <Badge color="red">expired</Badge> : <Badge color="green">active</Badge>}
+                  {tkn.id === null ? <Badge color="gray">{t('adminTokens.configFile')}</Badge>
+                    : tkn.expired ? <Badge color="red">{t('keys.expired')}</Badge> : <Badge color="green">{t('keys.active')}</Badge>}
                 </Table.Td>
                 <Table.Td>
-                  {isAdmin && t.id !== null && (
+                  {isAdmin && tkn.id !== null && (
                     <Group gap={4}>
-                      <ActionIcon variant="subtle" aria-label="edit" onClick={() => openEdit(t)}><IconEdit size={16} /></ActionIcon>
-                      <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(t.name, () => deleteMut.mutate(t.id!))}>
+                      <button aria-label="edit" onClick={() => openEdit(tkn)}><IconEdit size={16} /></button>
+                      <button aria-label="delete" onClick={() => confirmDelete(tkn.name, () => deleteMut.mutate(tkn.id!))}>
                         <IconTrash size={16} />
-                      </ActionIcon>
+                      </button>
                     </Group>
                   )}
                 </Table.Td>
@@ -93,41 +95,40 @@ export function AdminTokensPage() {
         </Table>
       </Card>
 
-      <Modal opened={opened} onClose={close} title="Tạo admin token">
+      <Modal opened={opened} onClose={close} title={t('adminTokens.createToken')}>
         <Stack>
-          <TextInput label="Tên" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-          <TextInput label="Scope (phẩy)" value={scope} onChange={(e) => setScope(e.currentTarget.value)}
-            description={'"*" = toàn quyền; hoặc liệt kê nhóm endpoint, vd: Metrics'} />
-          <TextInput label="Hết hạn (trống = không hết hạn)" type="datetime-local" value={expiration} onChange={(e) => setExpiration(e.currentTarget.value)} />
-          <Button onClick={() => createMut.mutate()} loading={createMut.isPending} disabled={!name}>Tạo</Button>
+          <Input value={name} onChange={(e) => setName(e.currentTarget.value)} required />
+          <Input value={scope} onChange={(e) => setScope(e.currentTarget.value)} />
+          <Input type="datetime-local" value={expiration} onChange={(e) => setExpiration(e.currentTarget.value)} />
+          <Button onClick={() => createMut.mutate()} loading={createMut.isPending} disabled={!name}>{t('common.create')}</Button>
         </Stack>
       </Modal>
 
-      <Modal opened={created != null} onClose={() => setCreated(null)} title="Token đã tạo — lưu ngay!" size="lg">
+      <Modal opened={created != null} onClose={() => setCreated(null)} title={t('adminTokens.createdSaveNow')} size="lg">
         {created && (
           <Stack>
-            <Alert color="yellow">Secret token chỉ hiển thị MỘT LẦN. Sao chép và lưu lại an toàn.</Alert>
-            <Text size="sm">Token</Text>
+            <Alert color="yellow">{t('adminTokens.secretShownOnce')}</Alert>
+            <span>{t('adminTokens.token')}</span>
             <Group>
-              <Code>{created.secretToken}</Code>
+              <code>{created.secretToken}</code>
               <CopyButton value={created.secretToken ?? ''}>
                 {({ copied, copy }) => (
-                  <ActionIcon variant="light" onClick={copy} aria-label="copy">
+                  <button onClick={copy} aria-label="copy">
                     {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                  </ActionIcon>
+                  </button>
                 )}
               </CopyButton>
             </Group>
-            <Button onClick={() => setCreated(null)}>Đã lưu, đóng</Button>
+            <Button onClick={() => setCreated(null)}>{t('adminTokens.savedClose')}</Button>
           </Stack>
         )}
       </Modal>
 
-      <Modal opened={editFor != null} onClose={() => setEditFor(null)} title="Sửa token">
+      <Modal opened={editFor != null} onClose={() => setEditFor(null)} title={t('adminTokens.editToken')}>
         <Stack>
-          <TextInput label="Tên" value={editName} onChange={(e) => setEditName(e.currentTarget.value)} />
-          <TextInput label="Scope (phẩy)" value={editScope} onChange={(e) => setEditScope(e.currentTarget.value)} />
-          <Button onClick={() => editMut.mutate()} loading={editMut.isPending}>Lưu</Button>
+          <Input value={editName} onChange={(e) => setEditName(e.currentTarget.value)} />
+          <Input value={editScope} onChange={(e) => setEditScope(e.currentTarget.value)} />
+          <Button onClick={() => editMut.mutate()} loading={editMut.isPending}>{t('common.save')}</Button>
         </Stack>
       </Modal>
     </Stack>

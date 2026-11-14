@@ -1,19 +1,22 @@
-import { Stack, Tabs, Title } from '@mantine/core'
+import { useState } from 'react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from 'h2d-glass-ui'
 import { ClusterOverview } from '../components/ClusterOverview'
 import { ClusterLayout } from '../components/ClusterLayout'
+import { useTranslation } from 'react-i18next'
 
 export function ClusterPage() {
+  const { t } = useTranslation()
   return (
-    <Stack>
-      <Title order={3}>Cluster</Title>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <h3>{t('nav.cluster')}</h3>
       <Tabs defaultValue="overview">
-        <Tabs.List>
-          <Tabs.Tab value="overview">Overview</Tabs.Tab>
-          <Tabs.Tab value="layout">Layout</Tabs.Tab>
-        </Tabs.List>
-        <Tabs.Panel value="overview" pt="md"><ClusterOverview /></Tabs.Panel>
-        <Tabs.Panel value="layout" pt="md"><ClusterLayout /></Tabs.Panel>
+        <TabsList>
+          <TabsTrigger value="overview">{t('cluster.overview')}</TabsTrigger>
+          <TabsTrigger value="layout">{t('cluster.layout')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview"><ClusterOverview /></TabsContent>
+        <TabsContent value="layout"><ClusterLayout /></TabsContent>
       </Tabs>
-    </Stack>
+    </div>
   )
 }

@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Button, Card, PasswordInput, Stack, Text, Title } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { Button, Card, CardContent, CardHeader, CardTitle, Field, Input } from 'h2d-glass-ui'
+import { toast } from 'h2d-glass-ui'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 export function ProfilePage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -15,29 +17,35 @@ export function ProfilePage() {
     setBusy(true)
     try {
       await api.post('/auth/password', { current_password: current, new_password: next })
-      notifications.show({ color: 'green', message: 'Đã đổi mật khẩu' })
+      toast.success(t('profile.passwordChanged'))
       setCurrent(''); setNext('')
     } catch (err: any) {
-      notifications.show({ color: 'red', message: err?.response?.data?.error || 'Đổi mật khẩu thất bại' })
+      toast.error(err?.response?.data?.error || t('profile.passwordChangeFailed'))
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Stack>
-      <Title order={3}>Hồ sơ</Title>
-      <Text c="dimmed">Đăng nhập với tài khoản <b>{user?.username}</b> ({user?.role})</Text>
-      <Card withBorder maw={420}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <h3 style={{ margin: 0 }}>{t('profile.title')}</h3>
+      <p style={{ color: 'var(--flg-text-muted, inherit)' }}>
+        {t('profile.loggedInAs')} <b>{user?.username}</b> ({user?.role})
+      </p>
+      <Card style={{ maxWidth: 420 }}>
         <form onSubmit={submit}>
-          <Stack>
-            <Title order={5}>Đổi mật khẩu</Title>
-            <PasswordInput label="Mật khẩu hiện tại" value={current} onChange={(e) => setCurrent(e.currentTarget.value)} required />
-            <PasswordInput label="Mật khẩu mới" description="Tối thiểu 8 ký tự" value={next} onChange={(e) => setNext(e.currentTarget.value)} required />
-            <Button type="submit" loading={busy} disabled={!current || !next}>Cập nhật</Button>
-          </Stack>
+          <CardHeader><CardTitle>{t('profile.changePassword')}</CardTitle></CardHeader>
+          <CardContent style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label={t('profile.currentPassword')} required>
+              <Input type="password" value={current} onChange={(e) => setCurrent(e.currentTarget.value)} required />
+            </Field>
+            <Field label={t('profile.newPassword')} description={t('profile.minChars')} required>
+              <Input type="password" value={next} onChange={(e) => setNext(e.currentTarget.value)} required />
+            </Field>
+            <Button type="submit" disabled={busy || !current || !next}>{t('profile.update')}</Button>
+          </CardContent>
         </form>
       </Card>
-    </Stack>
+    </div>
   )
 }

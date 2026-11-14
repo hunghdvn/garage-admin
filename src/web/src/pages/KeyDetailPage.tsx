@@ -1,15 +1,17 @@
+import { toast , Input , Spinner } from 'h2d-glass-ui'
 import { useEffect, useState } from 'react'
 import {
   ActionIcon, Alert, Anchor, Badge, Breadcrumbs, Button, Card, Code, CopyButton, Group, Loader, Stack, Switch, Table, Text, TextInput, Title, Tooltip,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { IconCopy, IconCheck, IconAlertTriangle } from '@tabler/icons-react'
 import { api, type KeyInfo } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 export function KeyDetailPage() {
+  const { t } = useTranslation()
   const { id = '' } = useParams()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
@@ -39,9 +41,9 @@ export function KeyDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['key', id] })
       qc.invalidateQueries({ queryKey: ['keys'] })
-      notifications.show({ color: 'green', message: 'Đã cập nhật' })
+      toast.success(t('common.updated'))
     },
-    onError: () => notifications.show({ color: 'red', message: 'Cập nhật thất bại' }),
+    onError: () => toast.error(t('common.updateFailed')),
   })
 
   async function handleRevealSecret() {
@@ -50,41 +52,41 @@ export function KeyDetailPage() {
       const res = await api.get<KeyInfo>(`/keys/${id}`, { params: { reveal: 1 } })
       setSecret(res.data.secretAccessKey ?? null)
     } catch {
-      notifications.show({ color: 'red', message: 'Không thể lấy secret key' })
+      toast.error(t('keyDetail.secretFetchFailed'))
     } finally {
       setRevealLoading(false)
     }
   }
 
-  if (isLoading || !key) return <Loader />
+  if (isLoading || !key) return <Spinner />
 
   return (
     <Stack>
       <Breadcrumbs>
-        <Anchor component={Link} to="/keys">Access Keys</Anchor>
-        <Text>{key.name || key.accessKeyId}</Text>
+        <Link to="/keys">{t('nav.accessKeys')}</Link>
+        <span>{key.name || key.accessKeyId}</span>
       </Breadcrumbs>
-      <Title order={3}>{key.name || key.accessKeyId}</Title>
+      <h3>{key.name || key.accessKeyId}</h3>
 
       <Card withBorder>
         <Stack>
-          <Group><Text w={140} c="dimmed">Access Key ID</Text><code>{key.accessKeyId}</code></Group>
-          <Group><Text w={140} c="dimmed">Trạng thái</Text>{key.expired ? <Badge color="red">expired</Badge> : <Badge color="green">active</Badge>}</Group>
+          <Group><span>{t('keyDetail.accessKeyId')}</span><code>{key.accessKeyId}</code></Group>
+          <Group><span>{t('keyDetail.status')}</span>{key.expired ? <Badge color="red">{t('keys.expired')}</Badge> : <Badge color="green">{t('keys.active')}</Badge>}</Group>
           {isAdmin && (
             secret ? (
               <Stack gap="xs">
-                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" title="Thông tin nhạy cảm">
-                  Secret key chỉ nên được chia sẻ qua kênh bảo mật.
+                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" title={t('keyDetail.sensitiveInfo')}>
+                  {t('keyDetail.secretShareSecurely')}
                 </Alert>
                 <Group>
-                  <Text w={140} c="dimmed">Secret Key</Text>
-                  <Code>{secret}</Code>
+                  <span>{t('keyDetail.secretKey')}</span>
+                  <code>{secret}</code>
                   <CopyButton value={secret} timeout={2000}>
                     {({ copied, copy }) => (
-                      <Tooltip label={copied ? 'Đã sao chép' : 'Sao chép'} withArrow position="right">
-                        <ActionIcon color={copied ? 'teal' : 'gray'} variant="subtle" onClick={copy}>
+                      <Tooltip label={copied ? t('common.copied') : t('common.copy')} withArrow position="right">
+                        <button color={copied ? 'teal' : 'gray'} onClick={copy}>
                           {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                        </ActionIcon>
+                        </button>
                       </Tooltip>
                     )}
                   </CopyButton>
@@ -92,40 +94,40 @@ export function KeyDetailPage() {
               </Stack>
             ) : (
               <Group>
-                <Text w={140} c="dimmed">Secret Key</Text>
+                <span>{t('keyDetail.secretKey')}</span>
                 <Button variant="light" size="xs" loading={revealLoading} onClick={handleRevealSecret}>
-                  Hiện secret
+                  {t('keyDetail.revealSecret')}
                 </Button>
               </Group>
             )
           )}
           <Group align="end">
-            <TextInput label="Tên" value={name} onChange={(e) => setName(e.currentTarget.value)} disabled={!isAdmin} />
-            {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ name })}>Đổi tên</Button>}
+            <Input value={name} onChange={(e) => setName(e.currentTarget.value)} disabled={!isAdmin} />
+            {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ name })}>{t('keyDetail.rename')}</Button>}
           </Group>
-          <Switch label="Cho phép tạo bucket (createBucket)" checked={createBucket} disabled={!isAdmin}
+          <Switch label={t('keyDetail.allowCreateBucket')} checked={createBucket} disabled={!isAdmin}
             onChange={(e) => { setCreateBucket(e.currentTarget.checked); updateMut.mutate({ create_bucket: e.currentTarget.checked }) }} />
           <Group align="end">
-            <TextInput label="Hết hạn" type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.currentTarget.value)} disabled={!isAdmin} />
-            {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ expiration: new Date(expiry).toISOString() })} disabled={!expiry}>Đặt hạn</Button>}
-            {isAdmin && <Button variant="subtle" onClick={() => updateMut.mutate({ never_expires: true })}>Bỏ hạn</Button>}
+            <Input type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.currentTarget.value)} disabled={!isAdmin} />
+            {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ expiration: new Date(expiry).toISOString() })} disabled={!expiry}>{t('keyDetail.setExpiry')}</Button>}
+            {isAdmin && <Button variant="subtle" onClick={() => updateMut.mutate({ never_expires: true })}>{t('keyDetail.removeExpiry')}</Button>}
           </Group>
         </Stack>
       </Card>
 
       <Card withBorder>
-        <Title order={5} mb="sm">Bucket có quyền truy cập</Title>
+        <h5>{t('keyDetail.accessibleBuckets')}</h5>
         <Table>
           <Table.Thead>
-            <Table.Tr><Table.Th>Bucket</Table.Th><Table.Th>Read</Table.Th><Table.Th>Write</Table.Th><Table.Th>Owner</Table.Th></Table.Tr>
+            <Table.Tr><Table.Th>{t('nav.buckets')}</Table.Th><Table.Th>{t('bucketDetail.read')}</Table.Th><Table.Th>{t('bucketDetail.write')}</Table.Th><Table.Th>{t('bucketDetail.owner')}</Table.Th></Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {key.buckets.map((b) => (
               <Table.Tr key={b.id}>
                 <Table.Td>
-                  <Anchor component={Link} to={`/buckets/${b.id}`}>
+                  <Link to={`/buckets/${b.id}`}>
                     {b.globalAliases[0] ?? b.id.slice(0, 12)}
-                  </Anchor>
+                  </Link>
                 </Table.Td>
                 <Table.Td>{b.permissions.read ? '✓' : ''}</Table.Td>
                 <Table.Td>{b.permissions.write ? '✓' : ''}</Table.Td>
@@ -133,7 +135,7 @@ export function KeyDetailPage() {
               </Table.Tr>
             ))}
             {key.buckets.length === 0 && (
-              <Table.Tr><Table.Td colSpan={4}><Text c="dimmed" size="sm">Chưa có quyền trên bucket nào. Cấp quyền ở trang chi tiết bucket.</Text></Table.Td></Table.Tr>
+              <Table.Tr><Table.Td colSpan={4}><span>{t('keyDetail.noBucketPermissions')}</span></Table.Td></Table.Tr>
             )}
           </Table.Tbody>
         </Table>

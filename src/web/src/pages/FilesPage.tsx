@@ -1,18 +1,20 @@
+import { toast , Input , Spinner } from 'h2d-glass-ui'
 import { useEffect, useRef, useState } from 'react'
 import {
   ActionIcon, Anchor, Breadcrumbs, Button, Card, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Title,
 } from '@mantine/core'
 import { IconFolderPlus, IconUpload, IconTrash, IconDownload, IconFolder, IconFile, IconEdit } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { api, type BucketListItem, type FileEntry } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from './BucketsPage'
 import { confirmDelete } from '../lib/confirmDelete'
+import { useTranslation } from 'react-i18next'
 
 export function FilesPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
@@ -59,10 +61,10 @@ export function FilesPage() {
         params: { bucket, key: prefix + file.name },
         headers: { 'Content-Type': file.type || 'application/octet-stream' },
       })
-      notifications.show({ color: 'green', message: `Đã tải lên ${file.name}` })
+      toast.success(t('files.uploaded', { name: file.name }))
       refresh()
     } catch (err: any) {
-      notifications.show({ color: 'red', message: err?.response?.data?.error || 'Tải lên thất bại' })
+      toast.error(err?.response?.data?.error || t('files.uploadFailed'))
     } finally {
       setUploading(false)
       if (fileInput.current) fileInput.current.value = ''
@@ -74,7 +76,7 @@ export function FilesPage() {
       await api.post('/files/folder', null, { params: { bucket, prefix: prefix + folderName } })
       folderCtl.close(); setFolderName(''); refresh()
     } catch (err: any) {
-      notifications.show({ color: 'red', message: err?.response?.data?.error || 'Tạo thư mục thất bại' })
+      toast.error(err?.response?.data?.error || t('files.createFolderFailed'))
     }
   }
 
@@ -83,7 +85,7 @@ export function FilesPage() {
       await api.delete('/files', { params: { bucket, key: entry.key } })
       refresh()
     } catch (err: any) {
-      notifications.show({ color: 'red', message: err?.response?.data?.error || 'Xóa thất bại' })
+      toast.error(err?.response?.data?.error || t('files.deleteFailed'))
     }
   }
 
@@ -102,7 +104,7 @@ export function FilesPage() {
       setRenameEntry(null)
       refresh()
     } catch (err: any) {
-      notifications.show({ color: 'red', message: err?.response?.data?.error || 'Đổi tên thất bại' })
+      toast.error(err?.response?.data?.error || t('files.renameFailed'))
     }
   }
 
@@ -119,53 +121,53 @@ export function FilesPage() {
   return (
     <Stack>
       <Group justify="space-between">
-        <Title order={3}>Files</Title>
-        <Select w={260} data={bucketOptions} value={bucket || null} onChange={(v) => v && setBucket(v)} placeholder="Chọn bucket" allowDeselect={false} />
+        <h3>{t('nav.files')}</h3>
+        <Select data={bucketOptions} value={bucket || null} onChange={(v) => v && setBucket(v)} placeholder={t('files.selectBucket')} allowDeselect={false} />
       </Group>
 
       {!bucket ? (
-        <Text c="dimmed">Chọn một bucket để duyệt file.</Text>
+        <span>{t('files.selectBucketHint')}</span>
       ) : (
         <>
           <Group justify="space-between">
             <Breadcrumbs>
-              <Anchor onClick={() => setPrefix('')}>{bucket}</Anchor>
+              <a onClick={() => setPrefix('')}>{bucket}</a>
               {segments.map((seg, i) => (
-                <Anchor key={i} onClick={() => setPrefix(crumbPrefix(i))}>{seg}</Anchor>
+                <a key={i} onClick={() => setPrefix(crumbPrefix(i))}>{seg}</a>
               ))}
             </Breadcrumbs>
             {isAdmin && (
               <Group>
-                <Button variant="light" leftSection={<IconFolderPlus size={16} />} onClick={folderCtl.open}>Thư mục mới</Button>
-                <Button leftSection={<IconUpload size={16} />} loading={uploading} onClick={() => fileInput.current?.click()}>Tải lên</Button>
+                <Button variant="light" leftSection={<IconFolderPlus size={16} />} onClick={folderCtl.open}>{t('files.newFolder')}</Button>
+                <Button leftSection={<IconUpload size={16} />} loading={uploading} onClick={() => fileInput.current?.click()}>{t('files.upload')}</Button>
                 <input ref={fileInput} type="file" hidden onChange={onUpload} />
               </Group>
             )}
           </Group>
 
           <Card withBorder>
-            {files.isLoading ? <Loader /> : files.error ? (
+            {files.isLoading ? <Spinner /> : files.error ? (
               <Stack gap={4}>
-                <Text c="red" fw={600}>Không duyệt được bucket.</Text>
-                <Text c="red" size="sm">{(files.error as any)?.response?.data?.error || (files.error as any)?.message || 'Lỗi không xác định'}</Text>
-                <Text size="xs" c="dimmed">Kiểm tra S3 endpoint + access key/secret của cluster trong Settings → Sửa cluster.</Text>
+                <span>{t('files.cannotBrowse')}</span>
+                <span>{(files.error as any)?.response?.data?.error || (files.error as any)?.message || t('files.unknownError')}</span>
+                <span>{t('files.checkS3')}</span>
               </Stack>
             ) : (
               <Table highlightOnHover>
                 <Table.Thead>
-                  <Table.Tr><Table.Th>Tên</Table.Th><Table.Th>Kích thước</Table.Th><Table.Th>Sửa đổi</Table.Th><Table.Th /></Table.Tr>
+                  <Table.Tr><Table.Th>{t('files.name')}</Table.Th><Table.Th>{t('files.size')}</Table.Th><Table.Th>{t('files.modified')}</Table.Th><Table.Th /></Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {(files.data ?? []).length === 0 && (
-                    <Table.Tr><Table.Td colSpan={4}><Text c="dimmed" size="sm">Thư mục trống.</Text></Table.Td></Table.Tr>
+                    <Table.Tr><Table.Td colSpan={4}><span>{t('files.emptyFolder')}</span></Table.Td></Table.Tr>
                   )}
                   {(files.data ?? []).map((entry) => (
                     <Table.Tr key={entry.key}>
                       <Table.Td>
                         {entry.is_dir ? (
-                          <Anchor onClick={() => setPrefix(entry.key)}>
+                          <a onClick={() => setPrefix(entry.key)}>
                             <Group gap={6}><IconFolder size={16} />{entry.name}</Group>
-                          </Anchor>
+                          </a>
                         ) : (
                           <Group gap={6}><IconFile size={16} />{entry.name}</Group>
                         )}
@@ -175,16 +177,16 @@ export function FilesPage() {
                       <Table.Td>
                         <Group gap={4} justify="flex-end">
                           {!entry.is_dir && (
-                            <ActionIcon variant="subtle" aria-label="download" onClick={() => download(entry)}><IconDownload size={16} /></ActionIcon>
+                            <button aria-label="download" onClick={() => download(entry)}><IconDownload size={16} /></button>
                           )}
                           {isAdmin && (
-                            <ActionIcon variant="subtle" aria-label="rename" onClick={() => openRename(entry)}><IconEdit size={16} /></ActionIcon>
+                            <button aria-label="rename" onClick={() => openRename(entry)}><IconEdit size={16} /></button>
                           )}
                           {isAdmin && (
-                            <ActionIcon color="red" variant="subtle" aria-label="delete"
-                              onClick={() => confirmDelete(entry.is_dir ? `thư mục "${entry.name}" (và toàn bộ bên trong)` : entry.name, () => remove(entry))}>
+                            <button aria-label="delete"
+                              onClick={() => confirmDelete(entry.is_dir ? t('files.folderConfirm', { name: entry.name }) : entry.name, () => remove(entry))}>
                               <IconTrash size={16} />
-                            </ActionIcon>
+                            </button>
                           )}
                         </Group>
                       </Table.Td>
@@ -197,18 +199,18 @@ export function FilesPage() {
         </>
       )}
 
-      <Modal opened={folderOpen} onClose={folderCtl.close} title="Tạo thư mục">
+      <Modal opened={folderOpen} onClose={folderCtl.close} title={t('files.createFolder')}>
         <Stack>
-          <TextInput label="Tên thư mục" value={folderName} onChange={(e) => setFolderName(e.currentTarget.value)} />
-          <Button onClick={createFolder} disabled={!folderName}>Tạo</Button>
+          <Input value={folderName} onChange={(e) => setFolderName(e.currentTarget.value)} />
+          <Button onClick={createFolder} disabled={!folderName}>{t('common.create')}</Button>
         </Stack>
       </Modal>
 
-      <Modal opened={renameEntry !== null} onClose={() => setRenameEntry(null)} title={renameEntry?.is_dir ? 'Đổi tên thư mục' : 'Đổi tên file'}>
+      <Modal opened={renameEntry !== null} onClose={() => setRenameEntry(null)} title={renameEntry?.is_dir ? t('files.renameFolder') : t('files.renameFile')}>
         <Stack>
-          <TextInput label="Tên mới" value={renameName} onChange={(e) => setRenameName(e.currentTarget.value)} />
-          {renameEntry?.is_dir && <Text size="xs" c="dimmed">Đổi tên thư mục sẽ di chuyển toàn bộ nội dung bên trong.</Text>}
-          <Button onClick={submitRename} disabled={!renameName || renameName === renameEntry?.name}>Lưu</Button>
+          <Input value={renameName} onChange={(e) => setRenameName(e.currentTarget.value)} />
+          {renameEntry?.is_dir && <span>{t('files.renameFolderHint')}</span>}
+          <Button onClick={submitRename} disabled={!renameName || renameName === renameEntry?.name}>{t('common.save')}</Button>
         </Stack>
       </Modal>
     </Stack>

@@ -1,4 +1,4 @@
-import { Select } from '@mantine/core'
+import { Select, SelectItem } from 'h2d-glass-ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCluster } from '../cluster/ClusterContext'
 import { setSelectedClusterId } from '../api/client'
@@ -9,19 +9,21 @@ export function ClusterSelector() {
   if (clusters.length === 0) return null
   return (
     <Select
-      size="xs"
-      w={180}
-      data={clusters.map((c) => ({ value: String(c.id), label: c.name }))}
+      size="sm"
       value={selectedId != null ? String(selectedId) : null}
-      onChange={(v) => {
+      onValueChange={(v) => {
         if (v) {
           const id = Number(v)
-          setSelectedClusterId(id)   // update interceptor BEFORE any refetch
+          setSelectedClusterId(id)
           setSelectedId(id)
           qc.invalidateQueries()
         }
       }}
-      allowDeselect={false}
-    />
+      placeholder="Cluster"
+    >
+      {clusters.map((c) => (
+        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+      ))}
+    </Select>
   )
 }

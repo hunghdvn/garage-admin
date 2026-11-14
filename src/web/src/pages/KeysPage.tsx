@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import {
-  ActionIcon, Badge, Button, Card, Code, CopyButton, Group, Modal, Stack, Table, Text, TextInput, Title, Alert,
-} from '@mantine/core'
+import { Button, Card, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Field, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Alert } from 'h2d-glass-ui'
 import { IconPlus, IconTrash, IconDownload, IconCopy, IconCheck } from '@tabler/icons-react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -10,18 +8,20 @@ import { Link } from 'react-router'
 import { api, type KeyListItem, type KeyInfo, type Permissions } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
+import { toast } from 'h2d-glass-ui'
+import { useTranslation } from 'react-i18next'
 
-// "RWO"-style summary of a key's permissions on one bucket.
 function permLetters(p: Permissions): string {
   return [p.read && 'R', p.write && 'W', p.owner && 'O'].filter(Boolean).join('') || '—'
 }
 
 export function KeysPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
-  const [createOpened, createCtl] = useDisclosure(false)
-  const [importOpened, importCtl] = useDisclosure(false)
+  const [createOpened, setCreateOpened] = useState(false)
+  const [importOpened, setImportOpened] = useState(false)
   const [name, setName] = useState('')
   const [expiration, setExpiration] = useState('')
   const [impId, setImpId] = useState('')
@@ -29,132 +29,127 @@ export function KeysPage() {
   const [impName, setImpName] = useState('')
   const [createdSecret, setCreatedSecret] = useState<KeyInfo | null>(null)
 
-  const { data: keys } = useQuery({
-    queryKey: ['keys'],
-    queryFn: async () => (await api.get<KeyListItem[]>('/keys')).data,
-  })
+  const { data: keys } = useQuery({ queryKey: ['keys'], queryFn: async () => (await api.get<KeyListItem[]>('/keys')).data })
 
   const createMut = useMutation({
     mutationFn: async (n: string) => (await api.post<KeyInfo>('/keys', { name: n, expiration: expiration ? new Date(expiration).toISOString() : null })).data,
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['keys'] })
-      createCtl.close()
-      setName('')
-      setExpiration('')
-      setCreatedSecret(data) // show the secret once
-    },
-    onError: () => notifications.show({ color: 'red', message: 'Tạo key thất bại' }),
+    onSuccess: (data) => { qc.invalidateQueries({ queryKey: ['keys'] }); setCreateOpened(false); setName(''); setExpiration(''); setCreatedSecret(data) },
+    onError: () => toast.error(t('keys.createFailed')),
   })
-
   const importMut = useMutation({
     mutationFn: async () => (await api.post('/keys/import', { access_key_id: impId, secret_access_key: impSecret, name: impName })).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['keys'] })
-      importCtl.close()
-      setImpId(''); setImpSecret(''); setImpName('')
-      notifications.show({ color: 'green', message: 'Đã import key' })
-    },
-    onError: () => notifications.show({ color: 'red', message: 'Import thất bại' }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['keys'] }); setImportOpened(false); setImpId(''); setImpSecret(''); setImpName(''); toast.success(t('keys.imported')) },
+    onError: () => toast.error(t('keys.importFailed')),
   })
-
-  const deleteMut = useMutation({
-    mutationFn: async (id: string) => api.delete(`/keys/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['keys'] }),
-  })
+  const deleteMut = useMutation({ mutationFn: async (id: string) => api.delete(`/keys/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['keys'] }) })
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <Title order={3}>Access Keys</Title>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0 }}>{t('keys.title')}</h3>
         {isAdmin && (
-          <Group>
-            <Button variant="light" leftSection={<IconDownload size={16} />} onClick={importCtl.open}>Import</Button>
-            <Button leftSection={<IconPlus size={16} />} onClick={createCtl.open}>Tạo key</Button>
-          </Group>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="secondary" onClick={() => setImportOpened(true)}>{t('common.import')}</Button>
+            <Button onClick={() => setCreateOpened(true)}>{t('keys.createKey')}</Button>
+          </div>
         )}
-      </Group>
+      </div>
 
-      <Card withBorder>
-        <Table.ScrollContainer minWidth={640}>
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr><Table.Th>Tên</Table.Th><Table.Th>Access Key ID</Table.Th><Table.Th>Buckets</Table.Th><Table.Th>Trạng thái</Table.Th><Table.Th /></Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
+      <Card>
+        <div style={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('keys.name')}</TableHead>
+                <TableHead>{t('keys.accessKeyId')}</TableHead>
+                <TableHead>{t('keys.buckets')}</TableHead>
+                <TableHead>{t('keys.status')}</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {keys?.map((k) => (
-                <Table.Tr key={k.id}>
-                  <Table.Td><Link to={`/keys/${k.id}`}>{k.name || '(no name)'}</Link></Table.Td>
-                  <Table.Td><code>{k.id}</code></Table.Td>
-                  {/* permissions/buckets come from ListKeysInfo (Garage >= v2.5); older clusters show "—". */}
-                  <Table.Td>
-                    {k.permissions === undefined ? '—' : (k.buckets ?? []).length === 0 ? <Text span size="sm" c="dimmed">không có</Text> : (
-                      <Group gap={4}>
+                <TableRow key={k.id}>
+                  <TableCell><Link to={`/keys/${k.id}`}>{k.name || t('keys.noName')}</Link></TableCell>
+                  <TableCell><code>{k.id}</code></TableCell>
+                  <TableCell>
+                    {k.permissions === undefined ? '—' : (k.buckets ?? []).length === 0 ? <span style={{ fontSize: 12, opacity: 0.6 }}>{t('keys.none')}</span> : (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {(k.buckets ?? []).map((b) => (
-                          <Badge key={b.id} variant="light" size="sm" component={Link} to={`/buckets/${b.id}`} style={{ cursor: 'pointer', textTransform: 'none' }}>
-                            {b.globalAliases[0] ?? b.localAliases[0] ?? `${b.id.slice(0, 8)}…`} · {permLetters(b.permissions)}
-                          </Badge>
+                          <Badge key={b.id} variant="neutral" style={{ textTransform: 'none' }}>{b.globalAliases[0] ?? b.localAliases[0] ?? `${b.id.slice(0, 8)}…`} · {permLetters(b.permissions)}</Badge>
                         ))}
-                      </Group>
+                      </div>
                     )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap={4}>
-                      {k.expired ? <Badge color="red">expired</Badge> : <Badge color="green">active</Badge>}
-                      {k.permissions?.createBucket && <Badge color="grape" variant="light">tạo bucket</Badge>}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    {isAdmin && (
-                      <ActionIcon color="red" variant="subtle" aria-label="delete" onClick={() => confirmDelete(k.name || k.id, () => deleteMut.mutate(k.id))}>
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    )}
-                  </Table.Td>
-                </Table.Tr>
+                  </TableCell>
+                  <TableCell>
+                    {k.expired ? <Badge variant="danger">{t('keys.expired')}</Badge> : <Badge variant="success">{t('keys.active')}</Badge>}
+                    {k.permissions?.createBucket && <Badge variant="accent" style={{ marginLeft: 4 }}>{t('keys.createBucket')}</Badge>}
+                  </TableCell>
+                  <TableCell>
+                    {isAdmin && <Button variant="ghost" size="sm" onClick={() => confirmDelete(k.name || k.id, () => deleteMut.mutate(k.id))}><IconTrash size={16} /></Button>}
+                  </TableCell>
+                </TableRow>
               ))}
-            </Table.Tbody>
+            </TableBody>
           </Table>
-        </Table.ScrollContainer>
+        </div>
       </Card>
 
-      <Modal opened={createOpened} onClose={createCtl.close} title="Tạo access key">
-        <Stack>
-          <TextInput label="Tên key" value={name} onChange={(e) => setName(e.currentTarget.value)} required />
-          <TextInput label="Hết hạn (trống = không hết hạn)" type="datetime-local" value={expiration} onChange={(e) => setExpiration(e.currentTarget.value)} />
-          <Button onClick={() => createMut.mutate(name)} loading={createMut.isPending} disabled={!name}>Tạo</Button>
-        </Stack>
-      </Modal>
+      <Dialog open={createOpened} onOpenChange={setCreateOpened}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('keys.createKey')}</DialogTitle></DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label={t('keys.keyName')} required>
+              <Input value={name} onChange={(e) => setName(e.currentTarget.value)} required />
+            </Field>
+            <Field label={t('keys.expiration')}>
+              <Input type="datetime-local" value={expiration} onChange={(e) => setExpiration(e.currentTarget.value)} />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => createMut.mutate(name)} disabled={!name}>{t('common.create')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal opened={importOpened} onClose={importCtl.close} title="Import access key">
-        <Stack>
-          <TextInput label="Access Key ID" value={impId} onChange={(e) => setImpId(e.currentTarget.value)} required />
-          <TextInput label="Secret Access Key" value={impSecret} onChange={(e) => setImpSecret(e.currentTarget.value)} required />
-          <TextInput label="Tên" value={impName} onChange={(e) => setImpName(e.currentTarget.value)} />
-          <Button onClick={() => importMut.mutate()} loading={importMut.isPending} disabled={!impId || !impSecret}>Import</Button>
-        </Stack>
-      </Modal>
+      <Dialog open={importOpened} onOpenChange={setImportOpened}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('common.import')}</DialogTitle></DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label={t('keys.accessKeyId')} required>
+              <Input value={impId} onChange={(e) => setImpId(e.currentTarget.value)} required />
+            </Field>
+            <Field label={t('keys.secretAccessKey')} required>
+              <Input value={impSecret} onChange={(e) => setImpSecret(e.currentTarget.value)} required />
+            </Field>
+            <Field label={t('keys.name')}>
+              <Input value={impName} onChange={(e) => setImpName(e.currentTarget.value)} />
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => importMut.mutate()} disabled={!impId || !impSecret}>{t('common.import')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal opened={createdSecret != null} onClose={() => setCreatedSecret(null)} title="Key đã tạo — lưu secret ngay!" size="lg">
-        {createdSecret && (
-          <Stack>
-            <Alert color="yellow">Secret chỉ hiển thị MỘT LẦN. Hãy sao chép và lưu lại an toàn.</Alert>
-            <Text size="sm">Access Key ID</Text>
-            <Group><Code>{createdSecret.accessKeyId}</Code></Group>
-            <Text size="sm">Secret Access Key</Text>
-            <Group>
-              <Code>{createdSecret.secretAccessKey}</Code>
-              <CopyButton value={createdSecret.secretAccessKey ?? ''}>
-                {({ copied, copy }) => (
-                  <ActionIcon variant="light" onClick={copy} aria-label="copy">
-                    {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                  </ActionIcon>
-                )}
-              </CopyButton>
-            </Group>
-            <Button onClick={() => setCreatedSecret(null)}>Đã lưu, đóng</Button>
-          </Stack>
-        )}
-      </Modal>
-    </Stack>
+      <Dialog open={createdSecret != null} onOpenChange={(o) => { if (!o) setCreatedSecret(null) }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('keys.createdSaveSecret')}</DialogTitle></DialogHeader>
+          {createdSecret && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Alert status="warning">{t('keys.secretShownOnce')}</Alert>
+              <div><b>{t('keys.accessKeyId')}</b></div>
+              <code>{createdSecret.accessKeyId}</code>
+              <div><b>{t('keys.secretAccessKey')}</b></div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <code>{createdSecret.secretAccessKey}</code>
+                <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(createdSecret.secretAccessKey ?? '')}><IconCopy size={16} /></Button>
+              </div>
+              <Button onClick={() => setCreatedSecret(null)}>{t('keys.savedClose')}</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

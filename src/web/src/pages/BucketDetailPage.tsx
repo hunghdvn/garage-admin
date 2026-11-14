@@ -1,9 +1,9 @@
+import { toast , Input , Spinner } from 'h2d-glass-ui'
 import { useEffect, useState } from 'react'
 import {
   Anchor, Badge, Button, Card, Checkbox, Grid, Group, NumberInput, Select, Stack,
   Switch, Table, Text, Textarea, TextInput, Title, Breadcrumbs, Loader,
 } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { api, type BucketInfo, type KeyListItem } from '../api/client'
@@ -11,8 +11,10 @@ import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
 import { fmtBytes } from './BucketsPage'
 import { UsageChart } from '../components/UsageChart'
+import { useTranslation } from 'react-i18next'
 
 export function BucketDetailPage() {
+  const { t } = useTranslation()
   const { id = '' } = useParams()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
@@ -60,15 +62,15 @@ export function BucketDetailPage() {
     mutationFn: async (body: unknown) => (await api.post(`/buckets/${id}`, body)).data,
     onSuccess: () => {
       refresh()
-      notifications.show({ color: 'green', message: 'Đã cập nhật' })
+      toast.success(t('common.updated'))
     },
-    onError: () => notifications.show({ color: 'red', message: 'Cập nhật thất bại' }),
+    onError: () => toast.error(t('common.updateFailed')),
   })
 
   const aliasMut = useMutation({
     mutationFn: async (alias: string) => (await api.post(`/buckets/${id}/aliases`, { alias })).data,
     onSuccess: () => { refresh(); setNewAlias('') },
-    onError: () => notifications.show({ color: 'red', message: 'Thêm alias thất bại' }),
+    onError: () => toast.error(t('bucketDetail.addAliasFailed')),
   })
   const removeAliasMut = useMutation({
     mutationFn: async (alias: string) => api.delete(`/buckets/${id}/aliases/${encodeURIComponent(alias)}`),
@@ -78,30 +80,30 @@ export function BucketDetailPage() {
   const permMut = useMutation({
     mutationFn: async (p: { access_key_id: string; read: boolean; write: boolean; owner: boolean; deny: boolean }) =>
       (await api.post(`/buckets/${id}/permissions`, p)).data,
-    onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã đổi quyền' }) },
-    onError: () => notifications.show({ color: 'red', message: 'Đổi quyền thất bại' }),
+    onSuccess: () => { refresh(); toast.success(t('bucketDetail.permissionChanged')) },
+    onError: () => toast.error(t('bucketDetail.permissionChangeFailed')),
   })
 
   const localAliasMut = useMutation({
     mutationFn: async () => (await api.post(`/buckets/${id}/aliases`, { alias: localAlias, local: true, access_key_id: localKey })).data,
-    onSuccess: () => { refresh(); setLocalAlias(''); setLocalKey(null); notifications.show({ color: 'green', message: 'Đã thêm local alias' }) },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Thêm local alias thất bại' }),
+    onSuccess: () => { refresh(); setLocalAlias(''); setLocalKey(null); toast.success(t('bucketDetail.localAliasAdded')) },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('bucketDetail.addLocalAliasFailed')),
   })
   const corsMut = useMutation({
     mutationFn: async () => {
       const rules = JSON.parse(corsText || '[]')
       return (await api.post(`/buckets/${id}`, { cors_rules: rules })).data
     },
-    onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã lưu CORS' }) },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Lưu CORS thất bại (kiểm tra JSON)' }),
+    onSuccess: () => { refresh(); toast.success(t('bucketDetail.corsSaved')) },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('bucketDetail.corsSaveFailed')),
   })
   const cleanupMut = useMutation({
     mutationFn: async () => (await api.post(`/buckets/${id}/cleanup-uploads`, { older_than_secs: 86400 })).data,
-    onSuccess: () => { refresh(); notifications.show({ color: 'green', message: 'Đã dọn multipart upload dở (>24h)' }) },
-    onError: (e: any) => notifications.show({ color: 'red', message: e?.response?.data?.error || 'Dọn thất bại' }),
+    onSuccess: () => { refresh(); toast.success(t('bucketDetail.cleanupDone')) },
+    onError: (e: any) => toast.error(e?.response?.data?.error || t('bucketDetail.cleanupFailed')),
   })
 
-  if (isLoading || !bucket) return <Loader />
+  if (isLoading || !bucket) return <Spinner />
 
   function saveWebsite() {
     updateMut.mutate({
@@ -120,87 +122,87 @@ export function BucketDetailPage() {
   return (
     <Stack>
       <Breadcrumbs>
-        <Anchor component={Link} to="/buckets">Buckets</Anchor>
-        <Text>{bucket.globalAliases[0] ?? bucket.id.slice(0, 12)}</Text>
+        <Link to="/buckets">{t('nav.buckets')}</Link>
+        <span>{bucket.globalAliases[0] ?? bucket.id.slice(0, 12)}</span>
       </Breadcrumbs>
       <Group justify="space-between">
-        <Title order={3}>{bucket.globalAliases.join(', ') || bucket.id.slice(0, 16)}</Title>
-        <Button component={Link} to={`/files?bucket=${encodeURIComponent(bucket.globalAliases[0] ?? bucket.id)}`} variant="light">Duyệt file</Button>
+        <h3>{bucket.globalAliases.join(', ') || bucket.id.slice(0, 16)}</h3>
+        <Button variant="light" onClick={() => window.location.href = `/files?bucket=${encodeURIComponent(bucket.globalAliases[0] ?? bucket.id)}`}>{t('bucketDetail.browseFiles')}</Button>
       </Group>
 
       <Grid>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><Text size="sm" c="dimmed">Objects</Text><Text fw={700}>{bucket.objects}</Text></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><Text size="sm" c="dimmed">Dung lượng</Text><Text fw={700}>{fmtBytes(bucket.bytes)}</Text></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><Text size="sm" c="dimmed">Multipart dở</Text><Text fw={700}>{bucket.unfinishedMultipartUploads}</Text></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><Text size="sm" c="dimmed">Website</Text><Text fw={700}>{bucket.websiteAccess ? 'Bật' : 'Tắt'}</Text></Card></Grid.Col>
+        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.objects')}</span><span>{bucket.objects}</span></Card></Grid.Col>
+        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.size')}</span><span>{fmtBytes(bucket.bytes)}</span></Card></Grid.Col>
+        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.unfinishedMultipart')}</span><span>{bucket.unfinishedMultipartUploads}</span></Card></Grid.Col>
+        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.website')}</span><span>{bucket.websiteAccess ? t('common.on') : t('common.off')}</span></Card></Grid.Col>
       </Grid>
 
       <UsageChart kind="bucket" bucketId={bucket.id} />
 
       <Card withBorder>
-        <Title order={5} mb="sm">Global aliases</Title>
+        <h5>{t('bucketDetail.globalAliases')}</h5>
         <Group>
           {bucket.globalAliases.map((a) => (
             <Badge key={a} rightSection={isAdmin && bucket.globalAliases.length > 1 ?
-              <Text style={{ cursor: 'pointer' }} onClick={() => confirmDelete(`alias "${a}"`, () => removeAliasMut.mutate(a))}>×</Text> : null}>{a}</Badge>
+              <span style={{ cursor: 'pointer' }} onClick={() => confirmDelete(t('bucketDetail.aliasLabel', { name: a }), () => removeAliasMut.mutate(a))}>×</span> : null}>{a}</Badge>
           ))}
         </Group>
         {isAdmin && (
           <Group mt="sm">
-            <TextInput placeholder="alias mới" value={newAlias} onChange={(e) => setNewAlias(e.currentTarget.value)} />
-            <Button variant="light" onClick={() => aliasMut.mutate(newAlias)} disabled={!newAlias}>Thêm alias</Button>
+            <Input placeholder={t('bucketDetail.newAlias')} value={newAlias} onChange={(e) => setNewAlias(e.currentTarget.value)} />
+            <Button variant="light" onClick={() => aliasMut.mutate(newAlias)} disabled={!newAlias}>{t('bucketDetail.addAlias')}</Button>
           </Group>
         )}
         {isAdmin && (
           <Group mt="sm">
-            <TextInput placeholder="local alias" value={localAlias} onChange={(e) => setLocalAlias(e.currentTarget.value)} />
-            <Select placeholder="key" w={220} data={bucket.keys.map((k) => ({ value: k.accessKeyId, label: k.name || k.accessKeyId }))} value={localKey} onChange={setLocalKey} />
-            <Button variant="light" onClick={() => localAliasMut.mutate()} disabled={!localAlias || !localKey}>Thêm local alias</Button>
+            <Input placeholder={t('bucketDetail.localAlias')} value={localAlias} onChange={(e) => setLocalAlias(e.currentTarget.value)} />
+            <Select placeholder={t('bucketDetail.key')} data={bucket.keys.map((k) => ({ value: k.accessKeyId, label: k.name || k.accessKeyId }))} value={localKey} onChange={setLocalKey} />
+            <Button variant="light" onClick={() => localAliasMut.mutate()} disabled={!localAlias || !localKey}>{t('bucketDetail.addLocalAlias')}</Button>
           </Group>
         )}
       </Card>
 
       <Card withBorder>
-        <Title order={5} mb="sm">Quota</Title>
+        <h5>{t('bucketDetail.quota')}</h5>
         <Group align="end">
-          <NumberInput label="Max size (bytes, trống = không giới hạn)" value={maxSize}
-            onChange={(v) => setMaxSize(typeof v === 'number' ? v : '')} disabled={!isAdmin} min={0} w={260} />
-          <NumberInput label="Max objects" value={maxObjects}
-            onChange={(v) => setMaxObjects(typeof v === 'number' ? v : '')} disabled={!isAdmin} min={0} w={200} />
-          {isAdmin && <Button onClick={saveQuotas} loading={updateMut.isPending}>Lưu quota</Button>}
+          <NumberInput label={t('bucketDetail.maxSize')} value={maxSize}
+            onChange={(v) => setMaxSize(typeof v === 'number' ? v : '')} disabled={!isAdmin} min={0} />
+          <NumberInput label={t('bucketDetail.maxObjects')} value={maxObjects}
+            onChange={(v) => setMaxObjects(typeof v === 'number' ? v : '')} disabled={!isAdmin} min={0} />
+          {isAdmin && <Button onClick={saveQuotas} loading={updateMut.isPending}>{t('bucketDetail.saveQuota')}</Button>}
         </Group>
       </Card>
 
       <Card withBorder>
-        <Title order={5} mb="sm">Website hosting</Title>
+        <h5>{t('bucketDetail.websiteHosting')}</h5>
         <Stack>
-          <Switch label="Bật static website" checked={websiteEnabled}
+          <Switch label={t('bucketDetail.enableStaticWebsite')} checked={websiteEnabled}
             onChange={(e) => setWebsiteEnabled(e.currentTarget.checked)} disabled={!isAdmin} />
           <Group>
-            <TextInput label="Index document" value={indexDoc} onChange={(e) => setIndexDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} />
-            <TextInput label="Error document" value={errorDoc} onChange={(e) => setErrorDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} />
+            <Input value={indexDoc} onChange={(e) => setIndexDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} />
+            <Input value={errorDoc} onChange={(e) => setErrorDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} />
           </Group>
-          {isAdmin && <Button w={160} onClick={saveWebsite} loading={updateMut.isPending}>Lưu website</Button>}
+          {isAdmin && <Button onClick={saveWebsite} loading={updateMut.isPending}>{t('bucketDetail.saveWebsite')}</Button>}
         </Stack>
       </Card>
 
       <Card withBorder>
-        <Title order={5} mb="sm">CORS rules (JSON)</Title>
+        <h5>{t('bucketDetail.corsRules')}</h5>
         <Textarea value={corsText} onChange={(e) => setCorsText(e.currentTarget.value)} minRows={4} autosize disabled={!isAdmin} styles={{ input: { fontFamily: 'monospace' } }} />
-        {isAdmin && <Button mt="sm" w={140} onClick={() => corsMut.mutate()} loading={corsMut.isPending}>Lưu CORS</Button>}
+        {isAdmin && <Button mt="sm" onClick={() => corsMut.mutate()} loading={corsMut.isPending}>{t('bucketDetail.saveCors')}</Button>}
       </Card>
 
       {isAdmin && (
         <Group>
-          <Button variant="light" color="orange" onClick={() => cleanupMut.mutate()} loading={cleanupMut.isPending}>Dọn multipart upload dở (&gt;24h)</Button>
+          <Button variant="light" color="orange" onClick={() => cleanupMut.mutate()} loading={cleanupMut.isPending}>{t('bucketDetail.cleanupMultipart')}</Button>
         </Group>
       )}
 
       <Card withBorder>
-        <Title order={5} mb="sm">Quyền key trên bucket</Title>
+        <h5>{t('bucketDetail.keyPermissions')}</h5>
         <Table>
           <Table.Thead>
-            <Table.Tr><Table.Th>Key</Table.Th><Table.Th>Read</Table.Th><Table.Th>Write</Table.Th><Table.Th>Owner</Table.Th></Table.Tr>
+            <Table.Tr><Table.Th>{t('keys.keyName')}</Table.Th><Table.Th>{t('bucketDetail.read')}</Table.Th><Table.Th>{t('bucketDetail.write')}</Table.Th><Table.Th>{t('bucketDetail.owner')}</Table.Th></Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {bucket.keys.map((k) => (
@@ -228,21 +230,20 @@ export function BucketDetailPage() {
             ))}
           </Table.Tbody>
         </Table>
-        <Text size="xs" c="dimmed" mt="xs">Tick để cấp, bỏ tick để thu hồi từng quyền.</Text>
+        <span>{t('bucketDetail.permissionHint')}</span>
         {isAdmin && (() => {
           const granted = new Set(bucket.keys.map((k) => k.accessKeyId))
           const candidates = (allKeys ?? []).filter((k) => !granted.has(k.id))
           return (
             <Group mt="md" align="end">
               <Select
-                label="Cấp quyền cho key khác"
-                placeholder="chọn access key"
-                w={300}
+                label={t('bucketDetail.grantToOtherKey')}
+                placeholder={t('bucketDetail.chooseAccessKey')}
                 searchable
-                data={candidates.map((k) => ({ value: k.id, label: `${k.name || '(no name)'} — ${k.id}` }))}
+                data={candidates.map((k) => ({ value: k.id, label: `${k.name || t('keys.noName')} — ${k.id}` }))}
                 value={grantKey}
                 onChange={setGrantKey}
-                nothingFoundMessage="Tất cả key đã có quyền"
+                nothingFoundMessage={t('bucketDetail.allKeysGranted')}
               />
               <Button
                 variant="light"
@@ -252,7 +253,7 @@ export function BucketDetailPage() {
                   setGrantKey(null)
                 }}
               >
-                Cấp read+write
+                {t('bucketDetail.grantReadWrite')}
               </Button>
             </Group>
           )
