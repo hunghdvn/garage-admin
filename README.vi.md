@@ -78,23 +78,25 @@ Không hỗ trợ Garage v1.x (Admin API v1).
 
 ### 1. Tạo khoá bí mật
 
-`APP_SECRET_KEY` phải dài **đúng 32 byte**, dùng để mã hoá thông tin đăng nhập cluster được lưu lại.
+`APP_SECRET_KEY` dùng để mã hoá thông tin đăng nhập cluster được lưu lại. Hãy dùng chuỗi hex
+**64 ký tự** (được giải mã thành khoá 32 byte):
 
 ```bash
-openssl rand -hex 16    # in ra 32 ký tự hex
+openssl rand -hex 32    # in ra 64 ký tự hex
 ```
 
 > Hãy cất giữ giá trị này cẩn thận và **không bao giờ thay đổi** sau khi đã sử dụng: thông tin
-> đã mã hoá bằng khoá cũ sẽ không thể giải mã được nữa.
+> đã mã hoá bằng khoá cũ sẽ không thể giải mã được nữa. Các bản triển khai hiện có vẫn chạy bình
+> thường với khoá hiện tại (chuỗi dài đúng 32 byte vẫn được chấp nhận và dùng trực tiếp làm khoá).
 
 ### 2. Chạy container
 
 ```bash
 docker run -d --name garage-admin \
   -p 8080:8080 \
-  -e APP_SECRET_KEY=<chuỗi-bí-mật-32-ký-tự> \
+  -e APP_SECRET_KEY=<chuỗi-bí-mật-64-ký-tự-hex> \
   -e ADMIN_USER=admin \
-  -e ADMIN_PASSWORD=<mật-khẩu-ban-đầu> \
+  -e ADMIN_PASSWORD=<mật-khẩu-ban-đầu-mạnh> \
   -v "$(pwd)/garage-admin-data:/data" \
   --restart unless-stopped \
   ghcr.io/hunghdvn/garage-admin:latest
@@ -114,6 +116,9 @@ services:
       - ./data:/data
 ```
 
+Container chạy bằng người dùng không phải root (uid/gid `10001`); khi khởi động, entrypoint tự
+sửa quyền sở hữu của `/data`, nên volume tạo từ các image cũ chạy bằng root vẫn dùng được.
+
 ### 3. Kết nối cluster
 
 1. Mở `http://<host>:8080` và đăng nhập bằng `ADMIN_USER` / `ADMIN_PASSWORD`
@@ -127,12 +132,14 @@ services:
 
 | Biến | Bắt buộc | Mặc định | Mô tả |
 |---|:---:|---|---|
-| `APP_SECRET_KEY` | ✅ | — | Khoá mã hoá secret được lưu. Phải đúng 32 byte. |
+| `APP_SECRET_KEY` | ✅ | — | Khoá mã hoá secret được lưu: 64 ký tự hex (khuyến nghị, `openssl rand -hex 32`) hoặc, để tương thích ngược, chuỗi dài đúng 32 byte dùng trực tiếp làm khoá. |
 | `APP_PORT` | | `8080` | Cổng HTTP |
 | `APP_DB_PATH` | | `/data/app.db` | Đường dẫn file SQLite |
 | `ADMIN_USER` | | — | Tài khoản admin ban đầu; chỉ dùng khi database chưa có người dùng nào |
-| `ADMIN_PASSWORD` | | — | Mật khẩu admin ban đầu |
+| `ADMIN_PASSWORD` | | — | Mật khẩu admin ban đầu. Hãy dùng mật khẩu mạnh (mật khẩu phải dài 8–72 ký tự; giá trị ngắn hơn vẫn tạo được tài khoản nhưng sẽ ghi cảnh báo vào log) |
 | `APP_COOKIE_SECURE` | | `false` | Đặt `true` khi chạy qua HTTPS để cookie phiên được gắn cờ `Secure` |
+| `APP_TRUSTED_ORIGINS` | | — | Các origin bổ sung, phân tách bằng dấu phẩy, được phép gửi request thay đổi dữ liệu, ví dụ `https://admin.example.com`. Chỉ cần khi reverse proxy ghi đè header `Host` và giao diện không chạy qua HTTPS/localhost; còn lại hãy để trống |
+| `APP_TRUST_PROXY` | | `false` | Khi đặt `true`, IP client dùng cho giới hạn đăng nhập được lấy từ phần tử ngoài cùng bên phải của `X-Forwarded-For`. Chỉ bật khi ứng dụng chỉ truy cập được thông qua reverse proxy do bạn kiểm soát |
 
 Endpoint kiểm tra sức khỏe: `GET /api/health`.
 
@@ -140,15 +147,30 @@ Endpoint kiểm tra sức khỏe: `GET /api/health`.
 
 - Admin token của Garage và S3 secret được mã hoá khi lưu bằng **AES-256-GCM** và không bao giờ
   gửi xuống trình duyệt; mọi lời gọi tới Garage đều đi qua backend.
-- Mật khẩu được băm bằng **bcrypt**. Phiên đăng nhập kéo dài 24 giờ, dùng cookie `HttpOnly`,
-  `SameSite=Lax`.
-- Vai trò `readonly` được kiểm soát ở API, không chỉ ẩn trên giao diện.
+- Mật khẩu (8–72 ký tự) được băm bằng **bcrypt**. Phiên đăng nhập kéo dài 24 giờ, dùng cookie
+  `HttpOnly`, `SameSite=Lax`; token phiên được lưu dạng băm (SHA-256) trong database. Đổi hoặc
+  đặt lại mật khẩu sẽ đăng xuất các phiên khác của người dùng đó. Mọi người dùng sẽ bị đăng xuất
+  một lần sau khi nâng cấp lên phiên bản này.
+- Đăng nhập bị giới hạn tần suất: 5 lần sai trong 15 phút cho mỗi cặp IP + tên đăng nhập và 30 lần
+  cho mỗi IP; các lần thử tiếp theo nhận HTTP 429.
+- Request thay đổi dữ liệu từ origin khác bị từ chối (chống CSRF dựa trên `Sec-Fetch-Site` /
+  Origin so với Host); xem `APP_TRUSTED_ORIGINS`.
+- Các header bảo mật (CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`) được gửi trong
+  mọi response.
+- Đổi admin endpoint của cluster yêu cầu nhập lại admin token của cluster đó.
+- Vai trò `readonly` được kiểm soát ở API, không chỉ ẩn trên giao diện. Vai trò này không thể
+  thay đổi gì, nhưng **có thể** duyệt và tải xuống object ở trang Files (bằng S3 key đã lưu của
+  cluster) và xem metadata của admin token (không bao giờ thấy secret của token).
+- Container chạy bằng người dùng không phải root.
 
 Khuyến nghị:
 
 - Chỉ public ứng dụng qua **HTTPS** (reverse proxy hoặc tunnel) và đặt `APP_COOKIE_SECURE=true`.
 - **Không** public admin API của Garage (cổng `3903`); chỉ Garage Admin cần truy cập cổng này.
 - Nên dùng một admin token riêng, giới hạn scope, thay cho `admin_token` toàn cục khi có thể.
+- Đặt `ADMIN_PASSWORD` mạnh; chỉ cấp tài khoản `readonly` cho những người được phép đọc dữ liệu
+  đang lưu, và dùng S3 key chỉ giới hạn trong các bucket cần cho phép duyệt.
+- Chỉ đặt `APP_TRUST_PROXY=true` khi đứng sau reverse proxy do bạn kiểm soát.
 
 ## Kiến trúc
 
@@ -187,7 +209,7 @@ Yêu cầu: **Go 1.25+**, **Node.js 22+**.
 # Backend (trong src/)
 cd src
 go test ./...
-APP_SECRET_KEY=$(openssl rand -hex 16) ADMIN_USER=admin ADMIN_PASSWORD=admin \
+APP_SECRET_KEY=$(openssl rand -hex 32) ADMIN_USER=admin ADMIN_PASSWORD=dev-password-123 \
 APP_DB_PATH=./dev.db go run ./cmd/garage-admin          # http://localhost:8080
 
 # Frontend có hot reload (trong src/web/), proxy /api sang :8080

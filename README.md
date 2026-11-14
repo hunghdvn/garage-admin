@@ -79,23 +79,25 @@ Garage v1.x (Admin API v1) is not supported.
 
 ### 1. Generate a secret key
 
-`APP_SECRET_KEY` must be **exactly 32 bytes**; it encrypts the stored cluster credentials.
+`APP_SECRET_KEY` encrypts the stored cluster credentials. Use a **64-character hex string**
+(decoded to a 32-byte key):
 
 ```bash
-openssl rand -hex 16    # prints 32 hex characters
+openssl rand -hex 32    # prints 64 hex characters
 ```
 
 > Keep this value safe and **never change it** once the app is in use: credentials
-> stored with the old key can no longer be decrypted.
+> stored with the old key can no longer be decrypted. Existing deployments keep working
+> with their current key (an exactly-32-byte string is still accepted as the raw key).
 
 ### 2. Run the container
 
 ```bash
 docker run -d --name garage-admin \
   -p 8080:8080 \
-  -e APP_SECRET_KEY=<32-character-secret> \
+  -e APP_SECRET_KEY=<64-hex-character-secret> \
   -e ADMIN_USER=admin \
-  -e ADMIN_PASSWORD=<initial-password> \
+  -e ADMIN_PASSWORD=<strong-initial-password> \
   -v "$(pwd)/garage-admin-data:/data" \
   --restart unless-stopped \
   ghcr.io/hunghdvn/garage-admin:latest
@@ -115,6 +117,9 @@ services:
       - ./data:/data
 ```
 
+The container runs as a non-root user (uid/gid `10001`); on start the entrypoint fixes the
+ownership of `/data`, so volumes created by earlier root-based images keep working.
+
 ### 3. Connect a cluster
 
 1. Open `http://<host>:8080` and sign in with `ADMIN_USER` / `ADMIN_PASSWORD`
@@ -128,12 +133,14 @@ services:
 
 | Variable | Required | Default | Description |
 |---|:---:|---|---|
-| `APP_SECRET_KEY` | ✅ | — | Encryption key for stored secrets. Must be exactly 32 bytes. |
+| `APP_SECRET_KEY` | ✅ | — | Encryption key for stored secrets: 64 hex characters (recommended, `openssl rand -hex 32`) or, for backward compatibility, an exactly-32-byte string used as the raw key. |
 | `APP_PORT` | | `8080` | HTTP listen port |
 | `APP_DB_PATH` | | `/data/app.db` | SQLite database path |
 | `ADMIN_USER` | | — | Initial admin username; only used when the database has no users |
-| `ADMIN_PASSWORD` | | — | Initial admin password |
+| `ADMIN_PASSWORD` | | — | Initial admin password. Use a strong one (passwords must be 8–72 characters; a shorter value still bootstraps but logs a warning) |
 | `APP_COOKIE_SECURE` | | `false` | Set to `true` when served over HTTPS so the session cookie is marked `Secure` |
+| `APP_TRUSTED_ORIGINS` | | — | Comma-separated extra origins allowed to make state-changing requests, e.g. `https://admin.example.com`. Only needed when a reverse proxy rewrites the `Host` header and the UI is not served over HTTPS/localhost; otherwise leave unset |
+| `APP_TRUST_PROXY` | | `false` | When `true`, the client IP for login rate limiting is taken from the right-most `X-Forwarded-For` entry. Enable only when the app is reachable exclusively through a reverse proxy you control |
 
 A health endpoint is available at `GET /api/health`.
 
@@ -141,15 +148,30 @@ A health endpoint is available at `GET /api/health`.
 
 - Garage admin tokens and S3 secrets are encrypted at rest with **AES-256-GCM** and are
   never sent to the browser; every Garage call goes through the backend.
-- Passwords are hashed with **bcrypt**. Sessions last 24 hours and use an `HttpOnly`,
-  `SameSite=Lax` cookie.
-- The `readonly` role is enforced by the API, not only hidden in the UI.
+- Passwords (8–72 characters) are hashed with **bcrypt**. Sessions last 24 hours and use an
+  `HttpOnly`, `SameSite=Lax` cookie; session tokens are stored hashed (SHA-256) in the database.
+  Changing or resetting a password signs out that user's other sessions. All users are signed
+  out once after upgrading to this version.
+- Login is rate limited: 5 failed attempts per 15 minutes per IP + username and 30 per IP;
+  further attempts get HTTP 429.
+- Cross-origin state-changing requests are rejected (CSRF protection based on `Sec-Fetch-Site`
+  / Origin vs Host); see `APP_TRUSTED_ORIGINS`.
+- Security headers (CSP, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`) are sent on
+  every response.
+- Changing a cluster's admin endpoint requires re-entering its admin token.
+- The `readonly` role is enforced by the API, not only hidden in the UI. It cannot change
+  anything, but it **can** browse and download objects on the Files page (using the cluster's
+  stored S3 key) and view admin-token metadata (never token secrets).
+- The container runs as a non-root user.
 
 Recommendations:
 
 - Expose the app only over **HTTPS** (reverse proxy or tunnel) and set `APP_COOKIE_SECURE=true`.
 - Do **not** expose Garage's admin API (port `3903`) publicly; only Garage Admin needs to reach it.
 - Prefer a dedicated, scoped admin token over the global `admin_token` where possible.
+- Choose a strong `ADMIN_PASSWORD`; give `readonly` accounts only to people who may read the
+  stored data, and use an S3 key scoped to the buckets that should be browsable.
+- Set `APP_TRUST_PROXY=true` only behind a reverse proxy you control.
 
 ## Architecture
 
@@ -188,7 +210,7 @@ Requirements: **Go 1.25+**, **Node.js 22+**.
 # Backend (from src/)
 cd src
 go test ./...
-APP_SECRET_KEY=$(openssl rand -hex 16) ADMIN_USER=admin ADMIN_PASSWORD=admin \
+APP_SECRET_KEY=$(openssl rand -hex 32) ADMIN_USER=admin ADMIN_PASSWORD=dev-password-123 \
 APP_DB_PATH=./dev.db go run ./cmd/garage-admin          # http://localhost:8080
 
 # Frontend with hot reload (from src/web/), proxies /api to :8080
