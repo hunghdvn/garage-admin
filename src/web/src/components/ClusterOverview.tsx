@@ -1,5 +1,4 @@
-import { Spinner } from 'h2d-glass-ui'
-import { Badge, Card, Grid, Group, Loader, Stack, Table, Text, Title } from '@mantine/core'
+import { Badge, Card, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'h2d-glass-ui'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ClusterStatus, type ClusterStatistics, type ClusterHealth } from '../api/client'
 import { fmtBytes } from '../pages/BucketsPage'
@@ -12,44 +11,54 @@ export function ClusterOverview() {
   const status = useQuery({ queryKey: ['cluster-status'], queryFn: async () => (await api.get<ClusterStatus>('/cluster/status')).data })
 
   if (health.isLoading || stats.isLoading || status.isLoading) return <Spinner />
-  if (health.error || stats.error || status.error) return <span>{t('clusterOverview.loadFailed')}</span>
+  if (health.error || stats.error || status.error) return <span style={{ color: 'red' }}>{t('clusterOverview.loadFailed')}</span>
 
   return (
-    <Stack>
-      <Group>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <span>{t('dashboard.clusterStatus')}:</span>
-        <Badge color={health.data!.status === 'healthy' ? 'green' : 'red'}>{health.data!.status}</Badge>
-      </Group>
-      <Grid>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}><Card withBorder><span>{t('dashboard.connectedNodes')}</span><span>{health.data!.connectedNodes}/{health.data!.knownNodes}</span></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}><Card withBorder><span>{t('clusterOverview.freeDataSpace')}</span><span>{fmtBytes(stats.data!.dataAvail)}</span></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}><Card withBorder><span>{t('dashboard.buckets')}</span><span>{stats.data!.bucketCount}</span></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}><Card withBorder><span>{t('dashboard.objects')}</span><span>{stats.data!.totalObjectCount}</span></Card></Grid.Col>
-      </Grid>
+        <Badge variant={health.data!.status === 'healthy' ? 'success' : 'danger'}>{health.data!.status}</Badge>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('dashboard.connectedNodes')}</div><div style={{ fontWeight: 700, fontSize: 20 }}>{health.data!.connectedNodes}/{health.data!.knownNodes}</div></div></Card>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('clusterOverview.freeDataSpace')}</div><div style={{ fontWeight: 700, fontSize: 20 }}>{fmtBytes(stats.data!.dataAvail)}</div></div></Card>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('dashboard.buckets')}</div><div style={{ fontWeight: 700, fontSize: 20 }}>{stats.data!.bucketCount}</div></div></Card>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('dashboard.objects')}</div><div style={{ fontWeight: 700, fontSize: 20 }}>{stats.data!.totalObjectCount}</div></div></Card>
+      </div>
 
-      <Card withBorder>
-        <h5>{t('clusterOverview.nodes')}</h5>
-        <Table.ScrollContainer minWidth={720}>
-          <Table>
-            <Table.Thead>
-              <Table.Tr><Table.Th>ID</Table.Th><Table.Th>{t('nodeMaintenance.hostname')}</Table.Th><Table.Th>{t('clusterOverview.zone')}</Table.Th><Table.Th>{t('clusterOverview.capacity')}</Table.Th><Table.Th>{t('clusterOverview.dataAvail')}</Table.Th><Table.Th>{t('clusterOverview.resyncQueue')}</Table.Th><Table.Th>{t('nodeMaintenance.status')}</Table.Th></Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {status.data!.nodes.map((n) => (
-                <Table.Tr key={n.id}>
-                  <Table.Td><code>{n.id.slice(0, 16)}…</code></Table.Td>
-                  <Table.Td>{n.hostname}</Table.Td>
-                  <Table.Td>{n.role?.zone ?? '—'}</Table.Td>
-                  <Table.Td>{n.role?.capacity != null ? fmtBytes(n.role.capacity) : t('nodeMaintenance.gateway')}</Table.Td>
-                  <Table.Td>{n.dataPartition ? `${fmtBytes(n.dataPartition.available)} / ${fmtBytes(n.dataPartition.total)}` : '—'}</Table.Td>
-                  <Table.Td>{n.resyncQueueLen == null ? '—' : n.resyncQueueLen > 0 ? <Badge color="orange" variant="light">{n.resyncQueueLen.toLocaleString()} {t('clusterOverview.blocks')}</Badge> : 0}</Table.Td>
-                  <Table.Td>{n.isUp ? <Badge color="green">{t('nodeMaintenance.up')}</Badge> : <Badge color="red">{t('nodeMaintenance.down')}</Badge>}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('clusterOverview.nodes')}</h5>
+          <div style={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>{t('nodeMaintenance.hostname')}</TableHead>
+                  <TableHead>{t('clusterOverview.zone')}</TableHead>
+                  <TableHead>{t('clusterOverview.capacity')}</TableHead>
+                  <TableHead>{t('clusterOverview.dataAvail')}</TableHead>
+                  <TableHead>{t('clusterOverview.resyncQueue')}</TableHead>
+                  <TableHead>{t('nodeMaintenance.status')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {status.data!.nodes.map((n) => (
+                  <TableRow key={n.id}>
+                    <TableCell><code>{n.id.slice(0, 16)}…</code></TableCell>
+                    <TableCell>{n.hostname}</TableCell>
+                    <TableCell>{n.role?.zone ?? '—'}</TableCell>
+                    <TableCell>{n.role?.capacity != null ? fmtBytes(n.role.capacity) : t('nodeMaintenance.gateway')}</TableCell>
+                    <TableCell>{n.dataPartition ? `${fmtBytes(n.dataPartition.available)} / ${fmtBytes(n.dataPartition.total)}` : '—'}</TableCell>
+                    <TableCell>{n.resyncQueueLen == null ? '—' : n.resyncQueueLen > 0 ? <Badge variant="warning">{n.resyncQueueLen.toLocaleString()} {t('clusterOverview.blocks')}</Badge> : 0}</TableCell>
+                    <TableCell>{n.isUp ? <Badge variant="success">{t('nodeMaintenance.up')}</Badge> : <Badge variant="danger">{t('nodeMaintenance.down')}</Badge>}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </Card>
-    </Stack>
+    </div>
   )
 }

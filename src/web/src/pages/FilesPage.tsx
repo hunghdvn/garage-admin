@@ -1,16 +1,13 @@
-import { toast , Input , Spinner } from 'h2d-glass-ui'
 import { useEffect, useRef, useState } from 'react'
-import {
-  ActionIcon, Anchor, Breadcrumbs, Button, Card, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Title,
-} from '@mantine/core'
+import { Button, Card, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Field, Input, Select, SelectItem, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Spinner } from 'h2d-glass-ui'
 import { IconFolderPlus, IconUpload, IconTrash, IconDownload, IconFolder, IconFile, IconEdit } from '@tabler/icons-react'
-import { useDisclosure } from '@mantine/hooks'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router'
 import { api, type BucketListItem, type FileEntry } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from './BucketsPage'
 import { confirmDelete } from '../lib/confirmDelete'
+import { toast } from 'h2d-glass-ui'
 import { useTranslation } from 'react-i18next'
 
 export function FilesPage() {
@@ -22,7 +19,7 @@ export function FilesPage() {
   const bucket = params.get('bucket') ?? ''
   const prefix = params.get('prefix') ?? ''
   const fileInput = useRef<HTMLInputElement>(null)
-  const [folderOpen, folderCtl] = useDisclosure(false)
+  const [folderOpen, setFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [uploading, setUploading] = useState(false)
   const [renameEntry, setRenameEntry] = useState<FileEntry | null>(null)
@@ -30,7 +27,6 @@ export function FilesPage() {
 
   const buckets = useQuery({ queryKey: ['buckets'], queryFn: async () => (await api.get<BucketListItem[]>('/buckets')).data })
 
-  // default the bucket to the first one if none selected
   useEffect(() => {
     if (!bucket && buckets.data && buckets.data.length > 0) {
       const alias = buckets.data[0].globalAliases[0] ?? buckets.data[0].id
@@ -46,10 +42,8 @@ export function FilesPage() {
 
   function setPrefix(p: string) { setParams({ bucket, prefix: p }) }
   function setBucket(b: string) { setParams({ bucket: b }) }
-
   const segments = prefix ? prefix.replace(/\/$/, '').split('/') : []
   function crumbPrefix(i: number) { return segments.slice(0, i + 1).join('/') + '/' }
-
   const refresh = () => qc.invalidateQueries({ queryKey: ['files', bucket, prefix] })
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -57,10 +51,7 @@ export function FilesPage() {
     if (!file) return
     setUploading(true)
     try {
-      await api.post('/files/upload', file, {
-        params: { bucket, key: prefix + file.name },
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-      })
+      await api.post('/files/upload', file, { params: { bucket, key: prefix + file.name }, headers: { 'Content-Type': file.type || 'application/octet-stream' } })
       toast.success(t('files.uploaded', { name: file.name }))
       refresh()
     } catch (err: any) {
@@ -70,16 +61,14 @@ export function FilesPage() {
       if (fileInput.current) fileInput.current.value = ''
     }
   }
-
   async function createFolder() {
     try {
       await api.post('/files/folder', null, { params: { bucket, prefix: prefix + folderName } })
-      folderCtl.close(); setFolderName(''); refresh()
+      setFolderOpen(false); setFolderName(''); refresh()
     } catch (err: any) {
       toast.error(err?.response?.data?.error || t('files.createFolderFailed'))
     }
   }
-
   async function remove(entry: FileEntry) {
     try {
       await api.delete('/files', { params: { bucket, key: entry.key } })
@@ -88,131 +77,133 @@ export function FilesPage() {
       toast.error(err?.response?.data?.error || t('files.deleteFailed'))
     }
   }
-
-  function openRename(entry: FileEntry) {
-    setRenameEntry(entry)
-    setRenameName(entry.name)
-  }
-
+  function openRename(entry: FileEntry) { setRenameEntry(entry); setRenameName(entry.name) }
   async function submitRename() {
     if (!renameEntry) return
     const isDir = renameEntry.is_dir
-    // dst keeps the current prefix, swaps the last segment for the new name.
     const dst = prefix + renameName + (isDir ? '/' : '')
     try {
       await api.post('/files/rename', { src: renameEntry.key, dst }, { params: { bucket } })
-      setRenameEntry(null)
-      refresh()
+      setRenameEntry(null); refresh()
     } catch (err: any) {
       toast.error(err?.response?.data?.error || t('files.renameFailed'))
     }
   }
-
   function download(entry: FileEntry) {
     const url = `/api/files/download?bucket=${encodeURIComponent(bucket)}&key=${encodeURIComponent(entry.key)}`
     window.open(url, '_blank')
   }
-
   const bucketOptions = (buckets.data ?? []).map((b) => {
     const v = b.globalAliases[0] ?? b.id
     return { value: v, label: v }
   })
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <h3>{t('nav.files')}</h3>
-        <Select data={bucketOptions} value={bucket || null} onChange={(v) => v && setBucket(v)} placeholder={t('files.selectBucket')} allowDeselect={false} />
-      </Group>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0 }}>{t('nav.files')}</h3>
+        <Select value={bucket || null} onValueChange={(v) => v && setBucket(v)} placeholder={t('files.selectBucket')}>
+          {bucketOptions.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
+        </Select>
+      </div>
 
       {!bucket ? (
-        <span>{t('files.selectBucketHint')}</span>
+        <span style={{ opacity: 0.6 }}>{t('files.selectBucketHint')}</span>
       ) : (
         <>
-          <Group justify="space-between">
-            <Breadcrumbs>
-              <a onClick={() => setPrefix('')}>{bucket}</a>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 13 }}>
+              <a onClick={() => setPrefix('')} style={{ cursor: 'pointer' }}>{bucket}</a>
               {segments.map((seg, i) => (
-                <a key={i} onClick={() => setPrefix(crumbPrefix(i))}>{seg}</a>
+                <span key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <span>/</span>
+                  <a onClick={() => setPrefix(crumbPrefix(i))} style={{ cursor: 'pointer' }}>{seg}</a>
+                </span>
               ))}
-            </Breadcrumbs>
+            </div>
             {isAdmin && (
-              <Group>
-                <Button variant="light" leftSection={<IconFolderPlus size={16} />} onClick={folderCtl.open}>{t('files.newFolder')}</Button>
-                <Button leftSection={<IconUpload size={16} />} loading={uploading} onClick={() => fileInput.current?.click()}>{t('files.upload')}</Button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="secondary" onClick={() => setFolderOpen(true)}><IconFolderPlus size={16} /> {t('files.newFolder')}</Button>
+                <Button onClick={() => fileInput.current?.click()} disabled={uploading}><IconUpload size={16} /> {t('files.upload')}</Button>
                 <input ref={fileInput} type="file" hidden onChange={onUpload} />
-              </Group>
+              </div>
             )}
-          </Group>
+          </div>
 
-          <Card withBorder>
+          <Card>
             {files.isLoading ? <Spinner /> : files.error ? (
-              <Stack gap={4}>
-                <span>{t('files.cannotBrowse')}</span>
-                <span>{(files.error as any)?.response?.data?.error || (files.error as any)?.message || t('files.unknownError')}</span>
-                <span>{t('files.checkS3')}</span>
-              </Stack>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ color: 'red', fontWeight: 600 }}>{t('files.cannotBrowse')}</span>
+                <span style={{ color: 'red', fontSize: 13 }}>{(files.error as any)?.response?.data?.error || (files.error as any)?.message || t('files.unknownError')}</span>
+                <span style={{ fontSize: 11, opacity: 0.6 }}>{t('files.checkS3')}</span>
+              </div>
             ) : (
-              <Table highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr><Table.Th>{t('files.name')}</Table.Th><Table.Th>{t('files.size')}</Table.Th><Table.Th>{t('files.modified')}</Table.Th><Table.Th /></Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {(files.data ?? []).length === 0 && (
-                    <Table.Tr><Table.Td colSpan={4}><span>{t('files.emptyFolder')}</span></Table.Td></Table.Tr>
-                  )}
-                  {(files.data ?? []).map((entry) => (
-                    <Table.Tr key={entry.key}>
-                      <Table.Td>
-                        {entry.is_dir ? (
-                          <a onClick={() => setPrefix(entry.key)}>
-                            <Group gap={6}><IconFolder size={16} />{entry.name}</Group>
-                          </a>
-                        ) : (
-                          <Group gap={6}><IconFile size={16} />{entry.name}</Group>
-                        )}
-                      </Table.Td>
-                      <Table.Td>{entry.is_dir ? '—' : fmtBytes(entry.size)}</Table.Td>
-                      <Table.Td>{entry.last_modified ? new Date(entry.last_modified).toLocaleString() : '—'}</Table.Td>
-                      <Table.Td>
-                        <Group gap={4} justify="flex-end">
-                          {!entry.is_dir && (
-                            <button aria-label="download" onClick={() => download(entry)}><IconDownload size={16} /></button>
+              <div style={{ overflowX: 'auto' }}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('files.name')}</TableHead>
+                      <TableHead>{t('files.size')}</TableHead>
+                      <TableHead>{t('files.modified')}</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(files.data ?? []).length === 0 && (
+                      <TableRow><TableCell colSpan={4}><span style={{ opacity: 0.6, fontSize: 13 }}>{t('files.emptyFolder')}</span></TableCell></TableRow>
+                    )}
+                    {(files.data ?? []).map((entry) => (
+                      <TableRow key={entry.key}>
+                        <TableCell>
+                          {entry.is_dir ? (
+                            <a onClick={() => setPrefix(entry.key)} style={{ cursor: 'pointer', display: 'flex', gap: 6, alignItems: 'center' }}><IconFolder size={16} />{entry.name}</a>
+                          ) : (
+                            <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><IconFile size={16} />{entry.name}</span>
                           )}
-                          {isAdmin && (
-                            <button aria-label="rename" onClick={() => openRename(entry)}><IconEdit size={16} /></button>
-                          )}
-                          {isAdmin && (
-                            <button aria-label="delete"
-                              onClick={() => confirmDelete(entry.is_dir ? t('files.folderConfirm', { name: entry.name }) : entry.name, () => remove(entry))}>
-                              <IconTrash size={16} />
-                            </button>
-                          )}
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
+                        </TableCell>
+                        <TableCell>{entry.is_dir ? '—' : fmtBytes(entry.size)}</TableCell>
+                        <TableCell>{entry.last_modified ? new Date(entry.last_modified).toLocaleString() : '—'}</TableCell>
+                        <TableCell>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                            {!entry.is_dir && <Button variant="ghost" size="sm" onClick={() => download(entry)}><IconDownload size={16} /></Button>}
+                            {isAdmin && <Button variant="ghost" size="sm" onClick={() => openRename(entry)}><IconEdit size={16} /></Button>}
+                            {isAdmin && <Button variant="ghost" size="sm" onClick={() => confirmDelete(entry.is_dir ? t('files.folderConfirm', { name: entry.name }) : entry.name, () => remove(entry))}><IconTrash size={16} /></Button>}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </Card>
         </>
       )}
 
-      <Modal opened={folderOpen} onClose={folderCtl.close} title={t('files.createFolder')}>
-        <Stack>
-          <Input value={folderName} onChange={(e) => setFolderName(e.currentTarget.value)} />
-          <Button onClick={createFolder} disabled={!folderName}>{t('common.create')}</Button>
-        </Stack>
-      </Modal>
+      <Dialog open={folderOpen} onOpenChange={setFolderOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('files.createFolder')}</DialogTitle></DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label={t('files.folderName')}><Input value={folderName} onChange={(e) => setFolderName(e.currentTarget.value)} /></Field>
+          </div>
+          <DialogFooter>
+            <Button onClick={createFolder} disabled={!folderName}>{t('common.create')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal opened={renameEntry !== null} onClose={() => setRenameEntry(null)} title={renameEntry?.is_dir ? t('files.renameFolder') : t('files.renameFile')}>
-        <Stack>
-          <Input value={renameName} onChange={(e) => setRenameName(e.currentTarget.value)} />
-          {renameEntry?.is_dir && <span>{t('files.renameFolderHint')}</span>}
-          <Button onClick={submitRename} disabled={!renameName || renameName === renameEntry?.name}>{t('common.save')}</Button>
-        </Stack>
-      </Modal>
-    </Stack>
+      <Dialog open={renameEntry !== null} onOpenChange={(o) => { if (!o) setRenameEntry(null) }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{renameEntry?.is_dir ? t('files.renameFolder') : t('files.renameFile')}</DialogTitle></DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label={t('files.newName')}><Input value={renameName} onChange={(e) => setRenameName(e.currentTarget.value)} /></Field>
+            {renameEntry?.is_dir && <span style={{ fontSize: 11, opacity: 0.6 }}>{t('files.renameFolderHint')}</span>}
+          </div>
+          <DialogFooter>
+            <Button onClick={submitRename} disabled={!renameName || renameName === renameEntry?.name}>{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

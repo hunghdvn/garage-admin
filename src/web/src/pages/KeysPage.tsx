@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Button, Card, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Field, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Alert } from 'h2d-glass-ui'
 import { IconPlus, IconTrash, IconDownload, IconCopy, IconCheck } from '@tabler/icons-react'
-import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { api, type KeyListItem, type KeyInfo, type Permissions } from '../api/client'

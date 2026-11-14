@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Button, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Field, Input } from 'h2d-glass-ui'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
-import { useDisclosure } from '@mantine/hooks'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { api, type BucketListItem } from '../api/client'

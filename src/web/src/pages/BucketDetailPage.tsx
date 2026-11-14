@@ -1,9 +1,5 @@
-import { toast , Input , Spinner } from 'h2d-glass-ui'
 import { useEffect, useState } from 'react'
-import {
-  Anchor, Badge, Button, Card, Checkbox, Grid, Group, NumberInput, Select, Stack,
-  Switch, Table, Text, Textarea, TextInput, Title, Breadcrumbs, Loader,
-} from '@mantine/core'
+import { Badge, Button, Card, Checkbox, Field, Input, NumberInput, Select, SelectItem, Spinner, Switch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea } from 'h2d-glass-ui'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { api, type BucketInfo, type KeyListItem } from '../api/client'
@@ -11,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { confirmDelete } from '../lib/confirmDelete'
 import { fmtBytes } from './BucketsPage'
 import { UsageChart } from '../components/UsageChart'
+import { toast } from 'h2d-glass-ui'
 import { useTranslation } from 'react-i18next'
 
 export function BucketDetailPage() {
@@ -24,8 +21,6 @@ export function BucketDetailPage() {
     queryKey: ['bucket', id],
     queryFn: async () => (await api.get<BucketInfo>(`/buckets/${id}`)).data,
   })
-
-  // All access keys, used to grant a key that has no permission on this bucket yet.
   const { data: allKeys } = useQuery({
     queryKey: ['keys'],
     queryFn: async () => (await api.get<KeyListItem[]>('/keys')).data,
@@ -51,7 +46,6 @@ export function BucketDetailPage() {
       setMaxObjects(bucket.quotas.maxObjects ?? '')
     }
   }, [bucket])
-
   useEffect(() => {
     if (bucket) setCorsText(JSON.stringify((bucket as any).corsRules ?? [], null, 2))
   }, [bucket])
@@ -60,13 +54,9 @@ export function BucketDetailPage() {
 
   const updateMut = useMutation({
     mutationFn: async (body: unknown) => (await api.post(`/buckets/${id}`, body)).data,
-    onSuccess: () => {
-      refresh()
-      toast.success(t('common.updated'))
-    },
+    onSuccess: () => { refresh(); toast.success(t('common.updated')) },
     onError: () => toast.error(t('common.updateFailed')),
   })
-
   const aliasMut = useMutation({
     mutationFn: async (alias: string) => (await api.post(`/buckets/${id}/aliases`, { alias })).data,
     onSuccess: () => { refresh(); setNewAlias('') },
@@ -76,14 +66,12 @@ export function BucketDetailPage() {
     mutationFn: async (alias: string) => api.delete(`/buckets/${id}/aliases/${encodeURIComponent(alias)}`),
     onSuccess: refresh,
   })
-
   const permMut = useMutation({
     mutationFn: async (p: { access_key_id: string; read: boolean; write: boolean; owner: boolean; deny: boolean }) =>
       (await api.post(`/buckets/${id}/permissions`, p)).data,
     onSuccess: () => { refresh(); toast.success(t('bucketDetail.permissionChanged')) },
     onError: () => toast.error(t('bucketDetail.permissionChangeFailed')),
   })
-
   const localAliasMut = useMutation({
     mutationFn: async () => (await api.post(`/buckets/${id}/aliases`, { alias: localAlias, local: true, access_key_id: localKey })).data,
     onSuccess: () => { refresh(); setLocalAlias(''); setLocalKey(null); toast.success(t('bucketDetail.localAliasAdded')) },
@@ -106,159 +94,146 @@ export function BucketDetailPage() {
   if (isLoading || !bucket) return <Spinner />
 
   function saveWebsite() {
-    updateMut.mutate({
-      website: { enabled: websiteEnabled, index_document: indexDoc, error_document: errorDoc },
-    })
+    updateMut.mutate({ website: { enabled: websiteEnabled, index_document: indexDoc, error_document: errorDoc } })
   }
   function saveQuotas() {
-    updateMut.mutate({
-      quotas: {
-        max_size: maxSize === '' ? null : Number(maxSize),
-        max_objects: maxObjects === '' ? null : Number(maxObjects),
-      },
-    })
+    updateMut.mutate({ quotas: { max_size: maxSize === '' ? null : Number(maxSize), max_objects: maxObjects === '' ? null : Number(maxObjects) } })
   }
 
   return (
-    <Stack>
-      <Breadcrumbs>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
         <Link to="/buckets">{t('nav.buckets')}</Link>
+        <span>/</span>
         <span>{bucket.globalAliases[0] ?? bucket.id.slice(0, 12)}</span>
-      </Breadcrumbs>
-      <Group justify="space-between">
-        <h3>{bucket.globalAliases.join(', ') || bucket.id.slice(0, 16)}</h3>
-        <Button variant="light" onClick={() => window.location.href = `/files?bucket=${encodeURIComponent(bucket.globalAliases[0] ?? bucket.id)}`}>{t('bucketDetail.browseFiles')}</Button>
-      </Group>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0 }}>{bucket.globalAliases.join(', ') || bucket.id.slice(0, 16)}</h3>
+        <Button variant="secondary" onClick={() => window.location.href = `/files?bucket=${encodeURIComponent(bucket.globalAliases[0] ?? bucket.id)}`}>{t('bucketDetail.browseFiles')}</Button>
+      </div>
 
-      <Grid>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.objects')}</span><span>{bucket.objects}</span></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.size')}</span><span>{fmtBytes(bucket.bytes)}</span></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.unfinishedMultipart')}</span><span>{bucket.unfinishedMultipartUploads}</span></Card></Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}><Card withBorder><span>{t('bucketDetail.website')}</span><span>{bucket.websiteAccess ? t('common.on') : t('common.off')}</span></Card></Grid.Col>
-      </Grid>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('bucketDetail.objects')}</div><div style={{ fontWeight: 700 }}>{bucket.objects}</div></div></Card>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('bucketDetail.size')}</div><div style={{ fontWeight: 700 }}>{fmtBytes(bucket.bytes)}</div></div></Card>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('bucketDetail.unfinishedMultipart')}</div><div style={{ fontWeight: 700 }}>{bucket.unfinishedMultipartUploads}</div></div></Card>
+        <Card><div style={{ padding: 8 }}><div style={{ fontSize: 12, opacity: 0.7 }}>{t('bucketDetail.website')}</div><div style={{ fontWeight: 700 }}>{bucket.websiteAccess ? t('common.on') : t('common.off')}</div></div></Card>
+      </div>
 
       <UsageChart kind="bucket" bucketId={bucket.id} />
 
-      <Card withBorder>
-        <h5>{t('bucketDetail.globalAliases')}</h5>
-        <Group>
-          {bucket.globalAliases.map((a) => (
-            <Badge key={a} rightSection={isAdmin && bucket.globalAliases.length > 1 ?
-              <span style={{ cursor: 'pointer' }} onClick={() => confirmDelete(t('bucketDetail.aliasLabel', { name: a }), () => removeAliasMut.mutate(a))}>×</span> : null}>{a}</Badge>
-          ))}
-        </Group>
-        {isAdmin && (
-          <Group mt="sm">
-            <Input placeholder={t('bucketDetail.newAlias')} value={newAlias} onChange={(e) => setNewAlias(e.currentTarget.value)} />
-            <Button variant="light" onClick={() => aliasMut.mutate(newAlias)} disabled={!newAlias}>{t('bucketDetail.addAlias')}</Button>
-          </Group>
-        )}
-        {isAdmin && (
-          <Group mt="sm">
-            <Input placeholder={t('bucketDetail.localAlias')} value={localAlias} onChange={(e) => setLocalAlias(e.currentTarget.value)} />
-            <Select placeholder={t('bucketDetail.key')} data={bucket.keys.map((k) => ({ value: k.accessKeyId, label: k.name || k.accessKeyId }))} value={localKey} onChange={setLocalKey} />
-            <Button variant="light" onClick={() => localAliasMut.mutate()} disabled={!localAlias || !localKey}>{t('bucketDetail.addLocalAlias')}</Button>
-          </Group>
-        )}
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('bucketDetail.globalAliases')}</h5>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {bucket.globalAliases.map((a) => (
+              <Badge key={a} variant="neutral">{a}</Badge>
+            ))}
+          </div>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <Input placeholder={t('bucketDetail.newAlias')} value={newAlias} onChange={(e) => setNewAlias(e.currentTarget.value)} />
+              <Button variant="secondary" onClick={() => aliasMut.mutate(newAlias)} disabled={!newAlias}>{t('bucketDetail.addAlias')}</Button>
+            </div>
+          )}
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <Input placeholder={t('bucketDetail.localAlias')} value={localAlias} onChange={(e) => setLocalAlias(e.currentTarget.value)} />
+              <Select placeholder={t('bucketDetail.key')} value={localKey} onValueChange={setLocalKey}>
+                {bucket.keys.map((k) => (<SelectItem key={k.accessKeyId} value={k.accessKeyId}>{k.name || k.accessKeyId}</SelectItem>))}
+              </Select>
+              <Button variant="secondary" onClick={() => localAliasMut.mutate()} disabled={!localAlias || !localKey}>{t('bucketDetail.addLocalAlias')}</Button>
+            </div>
+          )}
+        </div>
       </Card>
 
-      <Card withBorder>
-        <h5>{t('bucketDetail.quota')}</h5>
-        <Group align="end">
-          <NumberInput label={t('bucketDetail.maxSize')} value={maxSize}
-            onChange={(v) => setMaxSize(typeof v === 'number' ? v : '')} disabled={!isAdmin} min={0} />
-          <NumberInput label={t('bucketDetail.maxObjects')} value={maxObjects}
-            onChange={(v) => setMaxObjects(typeof v === 'number' ? v : '')} disabled={!isAdmin} min={0} />
-          {isAdmin && <Button onClick={saveQuotas} loading={updateMut.isPending}>{t('bucketDetail.saveQuota')}</Button>}
-        </Group>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('bucketDetail.quota')}</h5>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <Field label={t('bucketDetail.maxSize')}><NumberInput value={maxSize === '' ? null : maxSize} onValueChange={(v) => setMaxSize(v ?? '')} disabled={!isAdmin} min={0} /></Field>
+            <Field label={t('bucketDetail.maxObjects')}><NumberInput value={maxObjects === '' ? null : maxObjects} onValueChange={(v) => setMaxObjects(v ?? '')} disabled={!isAdmin} min={0} /></Field>
+            {isAdmin && <Button onClick={() => saveQuotas()} disabled={updateMut.isPending}>{t('bucketDetail.saveQuota')}</Button>}
+          </div>
+        </div>
       </Card>
 
-      <Card withBorder>
-        <h5>{t('bucketDetail.websiteHosting')}</h5>
-        <Stack>
-          <Switch label={t('bucketDetail.enableStaticWebsite')} checked={websiteEnabled}
-            onChange={(e) => setWebsiteEnabled(e.currentTarget.checked)} disabled={!isAdmin} />
-          <Group>
-            <Input value={indexDoc} onChange={(e) => setIndexDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} />
-            <Input value={errorDoc} onChange={(e) => setErrorDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} />
-          </Group>
-          {isAdmin && <Button onClick={saveWebsite} loading={updateMut.isPending}>{t('bucketDetail.saveWebsite')}</Button>}
-        </Stack>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('bucketDetail.websiteHosting')}</h5>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Switch checked={websiteEnabled} onChange={(e) => setWebsiteEnabled(e.currentTarget.checked)} disabled={!isAdmin} />
+              {t('bucketDetail.enableStaticWebsite')}
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Field label={t('bucketDetail.indexDocument')}><Input value={indexDoc} onChange={(e) => setIndexDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} /></Field>
+              <Field label={t('bucketDetail.errorDocument')}><Input value={errorDoc} onChange={(e) => setErrorDoc(e.currentTarget.value)} disabled={!isAdmin || !websiteEnabled} /></Field>
+            </div>
+            {isAdmin && <Button onClick={saveWebsite} disabled={updateMut.isPending}>{t('bucketDetail.saveWebsite')}</Button>}
+          </div>
+        </div>
       </Card>
 
-      <Card withBorder>
-        <h5>{t('bucketDetail.corsRules')}</h5>
-        <Textarea value={corsText} onChange={(e) => setCorsText(e.currentTarget.value)} minRows={4} autosize disabled={!isAdmin} styles={{ input: { fontFamily: 'monospace' } }} />
-        {isAdmin && <Button mt="sm" onClick={() => corsMut.mutate()} loading={corsMut.isPending}>{t('bucketDetail.saveCors')}</Button>}
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('bucketDetail.corsRules')}</h5>
+          <Textarea value={corsText} onChange={(e) => setCorsText(e.currentTarget.value)} disabled={!isAdmin} rows={4} />
+          {isAdmin && <Button style={{ marginTop: 8 }} onClick={() => corsMut.mutate()} disabled={corsMut.isPending}>{t('bucketDetail.saveCors')}</Button>}
+        </div>
       </Card>
 
       {isAdmin && (
-        <Group>
-          <Button variant="light" color="orange" onClick={() => cleanupMut.mutate()} loading={cleanupMut.isPending}>{t('bucketDetail.cleanupMultipart')}</Button>
-        </Group>
+        <Button variant="secondary" onClick={() => cleanupMut.mutate()} disabled={cleanupMut.isPending}>{t('bucketDetail.cleanupMultipart')}</Button>
       )}
 
-      <Card withBorder>
-        <h5>{t('bucketDetail.keyPermissions')}</h5>
-        <Table>
-          <Table.Thead>
-            <Table.Tr><Table.Th>{t('keys.keyName')}</Table.Th><Table.Th>{t('bucketDetail.read')}</Table.Th><Table.Th>{t('bucketDetail.write')}</Table.Th><Table.Th>{t('bucketDetail.owner')}</Table.Th></Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {bucket.keys.map((k) => (
-              <Table.Tr key={k.accessKeyId}>
-                <Table.Td>{k.name || k.accessKeyId}</Table.Td>
-                {(['read', 'write', 'owner'] as const).map((perm) => (
-                  <Table.Td key={perm}>
-                    <Checkbox
-                      checked={k.permissions[perm]}
-                      disabled={!isAdmin}
-                      onChange={(e) => {
-                        const grant = e.currentTarget.checked
-                        permMut.mutate({
-                          access_key_id: k.accessKeyId,
-                          read: perm === 'read' ? grant : false,
-                          write: perm === 'write' ? grant : false,
-                          owner: perm === 'owner' ? grant : false,
-                          deny: !grant,
-                        })
-                      }}
-                    />
-                  </Table.Td>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('bucketDetail.keyPermissions')}</h5>
+          <div style={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('keys.keyName')}</TableHead>
+                  <TableHead>{t('bucketDetail.read')}</TableHead>
+                  <TableHead>{t('bucketDetail.write')}</TableHead>
+                  <TableHead>{t('bucketDetail.owner')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bucket.keys.map((k) => (
+                  <TableRow key={k.accessKeyId}>
+                    <TableCell>{k.name || k.accessKeyId}</TableCell>
+                    {(['read', 'write', 'owner'] as const).map((perm) => (
+                      <TableCell key={perm}>
+                        <Checkbox checked={k.permissions[perm]} disabled={!isAdmin} onChange={() => {
+                          const grant = !k.permissions[perm]
+                          permMut.mutate({ access_key_id: k.accessKeyId, read: perm === 'read' ? grant : false, write: perm === 'write' ? grant : false, owner: perm === 'owner' ? grant : false, deny: !grant })
+                        }} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 ))}
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-        <span>{t('bucketDetail.permissionHint')}</span>
-        {isAdmin && (() => {
-          const granted = new Set(bucket.keys.map((k) => k.accessKeyId))
-          const candidates = (allKeys ?? []).filter((k) => !granted.has(k.id))
-          return (
-            <Group mt="md" align="end">
-              <Select
-                label={t('bucketDetail.grantToOtherKey')}
-                placeholder={t('bucketDetail.chooseAccessKey')}
-                searchable
-                data={candidates.map((k) => ({ value: k.id, label: `${k.name || t('keys.noName')} — ${k.id}` }))}
-                value={grantKey}
-                onChange={setGrantKey}
-                nothingFoundMessage={t('bucketDetail.allKeysGranted')}
-              />
-              <Button
-                variant="light"
-                disabled={!grantKey}
-                onClick={() => {
-                  permMut.mutate({ access_key_id: grantKey!, read: true, write: true, owner: false, deny: false })
-                  setGrantKey(null)
-                }}
-              >
-                {t('bucketDetail.grantReadWrite')}
-              </Button>
-            </Group>
-          )
-        })()}
+              </TableBody>
+            </Table>
+          </div>
+          <p style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>{t('bucketDetail.permissionHint')}</p>
+          {isAdmin && (() => {
+            const granted = new Set(bucket.keys.map((k) => k.accessKeyId))
+            const candidates = (allKeys ?? []).filter((k) => !granted.has(k.id))
+            return (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 12 }}>
+                <Select placeholder={t('bucketDetail.chooseAccessKey')} value={grantKey} onValueChange={setGrantKey}>
+                  {candidates.map((k) => (<SelectItem key={k.id} value={k.id}>{k.name || t('keys.noName')} — {k.id}</SelectItem>))}
+                </Select>
+                <Button variant="secondary" disabled={!grantKey} onClick={() => { permMut.mutate({ access_key_id: grantKey!, read: true, write: true, owner: false, deny: false }); setGrantKey(null) }}>
+                  {t('bucketDetail.grantReadWrite')}
+                </Button>
+              </div>
+            )
+          })()}
+        </div>
       </Card>
-    </Stack>
+    </div>
   )
 }

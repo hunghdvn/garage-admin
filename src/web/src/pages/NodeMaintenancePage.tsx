@@ -1,12 +1,10 @@
-import { toast, Spinner , Input } from 'h2d-glass-ui'
 import { useEffect, useState } from 'react'
-import {
-  Alert, Anchor, Badge, Button, Card, Code, Group, Loader, Modal, Select, Stack, Table, Text, TextInput, Textarea, Title,
-} from '@mantine/core'
+import { Alert, Badge, Button, Card, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Field, Input, Select, SelectItem, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea } from 'h2d-glass-ui'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, firstNode, type ClusterStatus, type MultiNode, type NodeInfoData, type Worker } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { fmtBytes } from './BucketsPage'
+import { toast } from 'h2d-glass-ui'
 import { useTranslation } from 'react-i18next'
 
 const REPAIR_TYPES = ['tables', 'blocks', 'versions', 'multipartUploads', 'blockRefs', 'blockRc', 'rebalance', 'aliases', 'clearResyncQueue']
@@ -19,31 +17,12 @@ export function NodeMaintenancePage() {
   const [node, setNode] = useState<string>('')
 
   const status = useQuery({ queryKey: ['cluster-status'], queryFn: async () => (await api.get<ClusterStatus>('/cluster/status')).data })
+  useEffect(() => { if (!node && status.data?.nodes?.length) setNode(status.data.nodes[0].id) }, [status.data, node])
 
-  useEffect(() => {
-    if (!node && status.data?.nodes?.length) setNode(status.data.nodes[0].id)
-  }, [status.data, node])
-
-  const info = useQuery({
-    queryKey: ['node-info', node],
-    queryFn: async () => (await api.get<MultiNode<NodeInfoData>>('/nodes/info', { params: { node } })).data,
-    enabled: !!node,
-  })
-  const stats = useQuery({
-    queryKey: ['node-stats', node],
-    queryFn: async () => (await api.get<MultiNode<{ freeform: string }>>('/nodes/statistics', { params: { node } })).data,
-    enabled: !!node,
-  })
-  const workers = useQuery({
-    queryKey: ['node-workers', node],
-    queryFn: async () => (await api.get<MultiNode<Worker[]>>('/nodes/workers', { params: { node } })).data,
-    enabled: !!node,
-  })
-  const blockErrors = useQuery({
-    queryKey: ['node-block-errors', node],
-    queryFn: async () => (await api.get<MultiNode<unknown[]>>('/nodes/blocks/errors', { params: { node } })).data,
-    enabled: !!node,
-  })
+  const info = useQuery({ queryKey: ['node-info', node], queryFn: async () => (await api.get<MultiNode<NodeInfoData>>('/nodes/info', { params: { node } })).data, enabled: !!node })
+  const stats = useQuery({ queryKey: ['node-stats', node], queryFn: async () => (await api.get<MultiNode<{ freeform: string }>>('/nodes/statistics', { params: { node } })).data, enabled: !!node })
+  const workers = useQuery({ queryKey: ['node-workers', node], queryFn: async () => (await api.get<MultiNode<Worker[]>>('/nodes/workers', { params: { node } })).data, enabled: !!node })
+  const blockErrors = useQuery({ queryKey: ['node-block-errors', node], queryFn: async () => (await api.get<MultiNode<unknown[]>>('/nodes/blocks/errors', { params: { node } })).data, enabled: !!node })
 
   const [repairType, setRepairType] = useState<string | null>('blocks')
   const [wvar, setWvar] = useState('')
@@ -87,146 +66,171 @@ export function NodeMaintenancePage() {
   const errList = firstNode(blockErrors.data, node) ?? []
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <h3>{t('nodeMaintenance.title')}</h3>
-        <Select data={nodeOptions} value={node || null} onChange={(v) => v && setNode(v)} allowDeselect={false} />
-      </Group>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0 }}>{t('nodeMaintenance.title')}</h3>
+        <Select value={node || null} onValueChange={(v) => v && setNode(v)}>
+          {nodeOptions.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
+        </Select>
+      </div>
 
-      <Card withBorder>
-        <h5>{t('nodeMaintenance.nodeInfo')}</h5>
-        {nodeInfo ? (
-          <Stack gap={4}>
-            <Group><span>{t('nodeMaintenance.hostname')}</span><span>{nodeInfo.hostname}</span></Group>
-            <Group><span>{t('nodeMaintenance.garageVersion')}</span><Badge>{nodeInfo.garageVersion}</Badge></Group>
-            <Group><span>{t('nodeMaintenance.dbEngine')}</span><span>{nodeInfo.dbEngine}</span></Group>
-            <Group><span>{t('nodeMaintenance.rust')}</span><span>{nodeInfo.rustVersion}</span></Group>
-            <Group align="start"><span>{t('nodeMaintenance.features')}</span><Group gap={4}>{nodeInfo.garageFeatures.map((f) => <Badge key={f} variant="light" size="sm">{f}</Badge>)}</Group></Group>
-            {/* Garage >= v2.4 */}
-            {nodeInfo.addr && <Group><span>{t('nodeMaintenance.rpcAddress')}</span><code>{nodeInfo.addr}</code></Group>}
-            {nodeInfo.isUp !== undefined && (
-              <Group><span>{t('nodeMaintenance.status')}</span><Group gap={4}>
-                {nodeInfo.isUp ? <Badge color="green">{t('nodeMaintenance.up')}</Badge> : <Badge color="red">{t('nodeMaintenance.down')}</Badge>}
-                {nodeInfo.draining && <Badge color="orange">{t('nodeMaintenance.draining')}</Badge>}
-              </Group></Group>
-            )}
-            {nodeInfo.role !== undefined && (
-              <Group><span>{t('nodeMaintenance.role')}</span><span>{nodeInfo.role
-                ? `zone ${nodeInfo.role.zone} · ${nodeInfo.role.capacity != null ? fmtBytes(nodeInfo.role.capacity) : t('nodeMaintenance.gateway')} · ${nodeInfo.role.tags.length ? `${t('nodeMaintenance.tags')}: ${nodeInfo.role.tags.join(', ')}` : ''}`
-                : t('nodeMaintenance.noRole')}</span></Group>
-            )}
-            {nodeInfo.dataPartition && <Group><span>{t('nodeMaintenance.dataPartition')}</span><span>{fmtBytes(nodeInfo.dataPartition.available)} {t('nodeMaintenance.free')} / {fmtBytes(nodeInfo.dataPartition.total)}</span></Group>}
-            {nodeInfo.metadataPartition && <Group><span>{t('nodeMaintenance.metadataPartition')}</span><span>{fmtBytes(nodeInfo.metadataPartition.available)} {t('nodeMaintenance.free')} / {fmtBytes(nodeInfo.metadataPartition.total)}</span></Group>}
-            {/* Garage >= v2.5: what S3/K2V clients should use to reach this node */}
-            {nodeInfo.connectionParameters && (
-              <Group align="start"><span>{t('nodeMaintenance.clientConnection')}</span>
-                <Stack gap={2}>
-                  <span>{t('nodeMaintenance.region')}: <code>{nodeInfo.connectionParameters.region}</code></span>
-                  {nodeInfo.connectionParameters.s3Endpoint && <span>{t('nodeMaintenance.s3Endpoint')}: <code>{nodeInfo.connectionParameters.s3Endpoint}</code></span>}
-                  {nodeInfo.connectionParameters.s3UsePathStyle != null && <span>{t('nodeMaintenance.pathStyle')}: <code>{nodeInfo.connectionParameters.s3UsePathStyle ? t('common.yes') : t('common.no')}</code></span>}
-                  {nodeInfo.connectionParameters.k2vEndpoint && <span>{t('nodeMaintenance.k2vEndpoint')}: <code>{nodeInfo.connectionParameters.k2vEndpoint}</code></span>}
-                </Stack>
-              </Group>
-            )}
-          </Stack>
-        ) : nodeErr ? <Alert color="red">{nodeErr}</Alert> : <Spinner size="sm" />}
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('nodeMaintenance.nodeInfo')}</h5>
+          {nodeInfo ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.hostname')}</span><span>{nodeInfo.hostname}</span></div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.garageVersion')}</span><Badge>{nodeInfo.garageVersion}</Badge></div>
+              <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.dbEngine')}</span><span>{nodeInfo.dbEngine}</span></div>
+              <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.rust')}</span><span>{nodeInfo.rustVersion}</span></div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.features')}</span><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{nodeInfo.garageFeatures.map((f) => <Badge key={f} variant="neutral">{f}</Badge>)}</div></div>
+              {nodeInfo.addr && <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.rpcAddress')}</span><code>{nodeInfo.addr}</code></div>}
+              {nodeInfo.isUp !== undefined && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.status')}</span><div style={{ display: 'flex', gap: 4 }}>
+                  {nodeInfo.isUp ? <Badge variant="success">{t('nodeMaintenance.up')}</Badge> : <Badge variant="danger">{t('nodeMaintenance.down')}</Badge>}
+                  {nodeInfo.draining && <Badge variant="warning">{t('nodeMaintenance.draining')}</Badge>}
+                </div></div>
+              )}
+              {nodeInfo.role !== undefined && (
+                <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.role')}</span><span>{nodeInfo.role ? `zone ${nodeInfo.role.zone} · ${nodeInfo.role.capacity != null ? fmtBytes(nodeInfo.role.capacity) : t('nodeMaintenance.gateway')} · ${nodeInfo.role.tags.length ? `${t('nodeMaintenance.tags')}: ${nodeInfo.role.tags.join(', ')}` : ''}` : t('nodeMaintenance.noRole')}</span></div>
+              )}
+              {nodeInfo.dataPartition && <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.dataPartition')}</span><span>{fmtBytes(nodeInfo.dataPartition.available)} {t('nodeMaintenance.free')} / {fmtBytes(nodeInfo.dataPartition.total)}</span></div>}
+              {nodeInfo.metadataPartition && <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.metadataPartition')}</span><span>{fmtBytes(nodeInfo.metadataPartition.available)} {t('nodeMaintenance.free')} / {fmtBytes(nodeInfo.metadataPartition.total)}</span></div>}
+              {nodeInfo.connectionParameters && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}><span style={{ width: 160, opacity: 0.7 }}>{t('nodeMaintenance.clientConnection')}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 13 }}>{t('nodeMaintenance.region')}: <code>{nodeInfo.connectionParameters.region}</code></span>
+                    {nodeInfo.connectionParameters.s3Endpoint && <span style={{ fontSize: 13 }}>{t('nodeMaintenance.s3Endpoint')}: <code>{nodeInfo.connectionParameters.s3Endpoint}</code></span>}
+                    {nodeInfo.connectionParameters.s3UsePathStyle != null && <span style={{ fontSize: 13 }}>{t('nodeMaintenance.pathStyle')}: <code>{nodeInfo.connectionParameters.s3UsePathStyle ? t('common.yes') : t('common.no')}</code></span>}
+                    {nodeInfo.connectionParameters.k2vEndpoint && <span style={{ fontSize: 13 }}>{t('nodeMaintenance.k2vEndpoint')}: <code>{nodeInfo.connectionParameters.k2vEndpoint}</code></span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : nodeErr ? <Alert status="error">{nodeErr}</Alert> : <Spinner />}
+        </div>
       </Card>
 
-      <Card withBorder>
-        <h5>{t('nodeMaintenance.statistics')}</h5>
-        <code>{firstNode(stats.data, node)?.freeform ?? '…'}</code>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('nodeMaintenance.statistics')}</h5>
+          <code style={{ display: 'block', whiteSpace: 'pre-wrap' }}>{firstNode(stats.data, node)?.freeform ?? '…'}</code>
+        </div>
       </Card>
 
-      <Card withBorder>
-        <h5>{t('nodeMaintenance.workers')} ({workerList.length})</h5>
-        <Table>
-          <Table.Thead>
-            <Table.Tr><Table.Th>ID</Table.Th><Table.Th>{t('nodeMaintenance.name')}</Table.Th><Table.Th>{t('nodeMaintenance.state')}</Table.Th><Table.Th>{t('nodeMaintenance.errors')}</Table.Th><Table.Th>{t('nodeMaintenance.queue')}</Table.Th><Table.Th>{t('nodeMaintenance.tranquility')}</Table.Th></Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {workerList.map((wk) => (
-              <Table.Tr key={wk.id}>
-                <Table.Td>{wk.id}</Table.Td>
-                <Table.Td><a onClick={() => showWorker(wk.id)}>{wk.name}</a></Table.Td>
-                <Table.Td><Badge variant="light" color={wk.state === 'busy' ? 'blue' : wk.errors > 0 ? 'red' : 'gray'}>{wk.state}</Badge></Table.Td>
-                <Table.Td>{wk.errors}</Table.Td>
-                <Table.Td>{wk.queueLength}</Table.Td>
-                <Table.Td>{wk.tranquility ?? '—'}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('nodeMaintenance.workers')} ({workerList.length})</h5>
+          <div style={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>{t('nodeMaintenance.name')}</TableHead>
+                  <TableHead>{t('nodeMaintenance.state')}</TableHead>
+                  <TableHead>{t('nodeMaintenance.errors')}</TableHead>
+                  <TableHead>{t('nodeMaintenance.queue')}</TableHead>
+                  <TableHead>{t('nodeMaintenance.tranquility')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {workerList.map((wk) => (
+                  <TableRow key={wk.id}>
+                    <TableCell>{wk.id}</TableCell>
+                    <TableCell><a onClick={() => showWorker(wk.id)} style={{ cursor: 'pointer' }}>{wk.name}</a></TableCell>
+                    <TableCell><Badge variant={wk.state === 'busy' ? 'accent' : wk.errors > 0 ? 'danger' : 'neutral'}>{wk.state}</Badge></TableCell>
+                    <TableCell>{wk.errors}</TableCell>
+                    <TableCell>{wk.queueLength}</TableCell>
+                    <TableCell>{wk.tranquility ?? '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </Card>
 
       {isAdmin && (
-        <Card withBorder>
-          <h5>{t('nodeMaintenance.tuneWorker')}</h5>
-          <span>{t('nodeMaintenance.tuneWorkerExample')}</span>
-          <Group align="end">
-            <Input value={wvar} onChange={(e) => setWvar(e.currentTarget.value)} />
-            <Input value={wval} onChange={(e) => setWval(e.currentTarget.value)} />
-            <Button onClick={() => mutate(() => api.post('/nodes/workers/variable', { variable: wvar, value: wval }, { params: { node } }), t('nodeMaintenance.workerVariableSet'))} disabled={!wvar}>{t('common.set')}</Button>
-          </Group>
+        <Card>
+          <div style={{ padding: 8 }}>
+            <h5 style={{ margin: '0 0 8px' }}>{t('nodeMaintenance.tuneWorker')}</h5>
+            <p style={{ fontSize: 11, opacity: 0.6, marginBottom: 8 }}>{t('nodeMaintenance.tuneWorkerExample')}</p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <Field label={t('nodeMaintenance.variable')}><Input value={wvar} onChange={(e) => setWvar(e.currentTarget.value)} style={{ width: 240 }} /></Field>
+              <Field label={t('nodeMaintenance.value')}><Input value={wval} onChange={(e) => setWval(e.currentTarget.value)} style={{ width: 140 }} /></Field>
+              <Button onClick={() => mutate(() => api.post('/nodes/workers/variable', { variable: wvar, value: wval }, { params: { node } }), t('nodeMaintenance.workerVariableSet'))} disabled={!wvar}>{t('common.set')}</Button>
+            </div>
+          </div>
         </Card>
       )}
 
       {isAdmin && (
-        <Card withBorder>
-          <h5>{t('nodeMaintenance.maintenance')}</h5>
-          <Group align="end">
-            <Button variant="light" onClick={() => setConfirm({ title: t('nodeMaintenance.metadataSnapshotConfirm'), run: () => mutate(() => api.post('/nodes/snapshot', {}, { params: { node } }), t('nodeMaintenance.snapshotCreated')) })}>{t('nodeMaintenance.metadataSnapshot')}</Button>
-            <Select label={t('nodeMaintenance.repairType')} data={REPAIR_TYPES} value={repairType} onChange={setRepairType} />
-            <Button color="orange" onClick={() => setConfirm({ title: t('nodeMaintenance.launchRepairConfirm', { type: repairType }), run: () => mutate(() => api.post('/nodes/repair', { repair_type: repairType }, { params: { node } }), t('nodeMaintenance.repairLaunched')) })} disabled={!repairType}>{t('nodeMaintenance.launchRepair')}</Button>
-          </Group>
+        <Card>
+          <div style={{ padding: 8 }}>
+            <h5 style={{ margin: '0 0 8px' }}>{t('nodeMaintenance.maintenance')}</h5>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <Button variant="secondary" onClick={() => setConfirm({ title: t('nodeMaintenance.metadataSnapshotConfirm'), run: () => mutate(() => api.post('/nodes/snapshot', {}, { params: { node } }), t('nodeMaintenance.snapshotCreated')) })}>{t('nodeMaintenance.metadataSnapshot')}</Button>
+              <Field label={t('nodeMaintenance.repairType')}>
+                <Select value={repairType} onValueChange={setRepairType}>
+                  {REPAIR_TYPES.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                </Select>
+              </Field>
+              <Button variant="secondary" color="orange" onClick={() => setConfirm({ title: t('nodeMaintenance.launchRepairConfirm', { type: repairType }), run: () => mutate(() => api.post('/nodes/repair', { repair_type: repairType }, { params: { node } }), t('nodeMaintenance.repairLaunched')) })} disabled={!repairType}>{t('nodeMaintenance.launchRepair')}</Button>
+            </div>
+          </div>
         </Card>
       )}
 
-      <Card withBorder>
-        <Group justify="space-between">
-          <h5>{t('nodeMaintenance.blockErrors')} ({errList.length})</h5>
-          {isAdmin && errList.length > 0 && (
-            <Button size="xs" variant="light" onClick={() => setConfirm({ title: t('nodeMaintenance.retryAllConfirm'), run: () => mutate(() => api.post('/nodes/blocks/retry', { all: true }, { params: { node } }), t('nodeMaintenance.retryRequested')) })}>{t('nodeMaintenance.retryAll')}</Button>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <h5 style={{ margin: 0 }}>{t('nodeMaintenance.blockErrors')} ({errList.length})</h5>
+            {isAdmin && errList.length > 0 && (
+              <Button variant="secondary" onClick={() => setConfirm({ title: t('nodeMaintenance.retryAllConfirm'), run: () => mutate(() => api.post('/nodes/blocks/retry', { all: true }, { params: { node } }), t('nodeMaintenance.retryRequested')) })}>{t('nodeMaintenance.retryAll')}</Button>
+            )}
+          </div>
+          {errList.length === 0 ? <span style={{ fontSize: 13, opacity: 0.6 }}>{t('nodeMaintenance.noBlockErrors')}</span> : <code style={{ display: 'block', whiteSpace: 'pre-wrap' }}>{JSON.stringify(errList, null, 2)}</code>}
+          {isAdmin && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{t('nodeMaintenance.purgeBlocks')}</span>
+              <span style={{ fontSize: 11, opacity: 0.6 }}>{t('nodeMaintenance.purgeBlocksDesc')}</span>
+              <Textarea value={purgeText} onChange={(e) => setPurgeText(e.currentTarget.value)} rows={2} />
+              <Button variant="danger" style={{ width: 160 }} disabled={!purgeText.trim()} onClick={() => setConfirm({ title: t('nodeMaintenance.purgeConfirm'), run: () => mutate(() => api.post('/nodes/blocks/purge', { block_hashes: purgeText.split('\n').map((l) => l.trim()).filter(Boolean) }, { params: { node } }), t('nodeMaintenance.purged')) })}>
+                {t('nodeMaintenance.purge')}
+              </Button>
+            </div>
           )}
-        </Group>
-        {errList.length === 0 ? <span>{t('nodeMaintenance.noBlockErrors')}</span> : <code>{JSON.stringify(errList, null, 2)}</code>}
-        {isAdmin && (
-          <Stack mt="md">
-            <span>{t('nodeMaintenance.purgeBlocks')}</span>
-            <span>{t('nodeMaintenance.purgeBlocksDesc')}</span>
-            <Textarea value={purgeText} onChange={(e) => setPurgeText(e.currentTarget.value)} minRows={2} autosize placeholder="hash..." />
-            <Button color="red" disabled={!purgeText.trim()}
-              onClick={() => setConfirm({
-                title: t('nodeMaintenance.purgeConfirm'),
-                run: () => mutate(() => api.post('/nodes/blocks/purge', { block_hashes: purgeText.split('\n').map((l) => l.trim()).filter(Boolean) }, { params: { node } }), t('nodeMaintenance.purged')),
-              })}>
-              {t('nodeMaintenance.purge')}
-            </Button>
-          </Stack>
-        )}
+        </div>
       </Card>
 
-      <Card withBorder>
-        <h5>{t('nodeMaintenance.blockLookup')}</h5>
-        <Group align="end">
-          <Input value={blockHash} onChange={(e) => setBlockHash(e.currentTarget.value)} />
-          <Button variant="light" onClick={lookupBlock} disabled={!blockHash}>{t('nodeMaintenance.lookup')}</Button>
-        </Group>
-        {blockInfo != null && <code>{JSON.stringify(blockInfo, null, 2)}</code>}
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('nodeMaintenance.blockLookup')}</h5>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <Field label={t('nodeMaintenance.blockHash')}><Input value={blockHash} onChange={(e) => setBlockHash(e.currentTarget.value)} style={{ width: 360 }} /></Field>
+            <Button variant="secondary" onClick={lookupBlock} disabled={!blockHash}>{t('nodeMaintenance.lookup')}</Button>
+          </div>
+          {blockInfo != null && <code style={{ display: 'block', whiteSpace: 'pre-wrap', marginTop: 8 }}>{JSON.stringify(blockInfo, null, 2)}</code>}
+        </div>
       </Card>
 
-      <Modal opened={confirm != null} onClose={() => setConfirm(null)} title={t('common.confirm')}>
-        <Stack>
-          <Alert color="orange">{confirm?.title}</Alert>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setConfirm(null)}>{t('common.cancel')}</Button>
-            <Button color="red" onClick={() => { confirm?.run(); setConfirm(null) }}>{t('common.confirm')}</Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <Dialog open={confirm != null} onOpenChange={(o) => { if (!o) setConfirm(null) }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('common.confirm')}</DialogTitle></DialogHeader>
+          <Alert status="warning">{confirm?.title}</Alert>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setConfirm(null)}>{t('common.cancel')}</Button>
+            <Button variant="danger" onClick={() => { confirm?.run(); setConfirm(null) }}>{t('common.confirm')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal opened={workerDetail != null} onClose={() => setWorkerDetail(null)} title={t('nodeMaintenance.workerDetail')} size="lg">
-        <code>{JSON.stringify(workerDetail, null, 2)}</code>
-      </Modal>
-    </Stack>
+      <Dialog open={workerDetail != null} onOpenChange={(o) => { if (!o) setWorkerDetail(null) }}>
+        <DialogContent size="lg">
+          <DialogHeader><DialogTitle>{t('nodeMaintenance.workerDetail')}</DialogTitle></DialogHeader>
+          <code style={{ display: 'block', whiteSpace: 'pre-wrap' }}>{JSON.stringify(workerDetail, null, 2)}</code>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

@@ -1,11 +1,6 @@
-import { toast , Input } from 'h2d-glass-ui'
 import { useState } from 'react'
-import {
-  Button, Card, Checkbox, Group, Modal, Select, Stack, Table, TextInput, Title, Badge, ActionIcon,
-  SegmentedControl, Text, useMantineColorScheme,
-} from '@mantine/core'
+import { Button, Card, Checkbox, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Field, Input, Select, SelectItem, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge } from 'h2d-glass-ui'
 import { IconTrash, IconPlus, IconEdit } from '@tabler/icons-react'
-import { useDisclosure } from '@mantine/hooks'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Cluster } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -13,6 +8,7 @@ import { confirmDelete } from '../lib/confirmDelete'
 import { useTranslation } from 'react-i18next'
 import { SUPPORTED_LANGUAGES } from '../i18n'
 import i18n from '../i18n'
+import { toast } from 'h2d-glass-ui'
 
 interface FormState {
   name: string; admin_endpoint: string; admin_token: string
@@ -31,9 +27,11 @@ export function SettingsPage() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const qc = useQueryClient()
-  const [colorScheme, setColorScheme] = useState<'light' | 'dark' | 'auto'>(() => (localStorage.getItem('colorScheme') as any) || 'auto')
-  const [opened, { open, close }] = useDisclosure(false)
+  const [opened, setOpened] = useState(false)
   const [form, setForm] = useState<FormState>(empty)
+  const [colorScheme, setColorScheme] = useState<'light' | 'dark' | 'auto'>(() => (localStorage.getItem('colorScheme') as any) || 'auto')
+  const [editCluster, setEditCluster] = useState<Cluster | null>(null)
+  const [editForm, setEditForm] = useState<FormState>(empty)
 
   function applyColorScheme(v: 'light' | 'dark' | 'auto') {
     setColorScheme(v)
@@ -42,9 +40,6 @@ export function SettingsPage() {
     document.documentElement.setAttribute('data-flg-theme', resolved)
   }
 
-  const [editCluster, setEditCluster] = useState<Cluster | null>(null)
-  const [editForm, setEditForm] = useState<FormState>(empty)
-
   const { data: clusters } = useQuery({
     queryKey: ['clusters'],
     queryFn: async () => (await api.get<Cluster[]>('/clusters')).data,
@@ -52,24 +47,14 @@ export function SettingsPage() {
 
   const createMut = useMutation({
     mutationFn: async (f: FormState) => (await api.post('/clusters', f)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['clusters'] })
-      toast.success(t('settings.clusterAdded'))
-      close(); setForm(empty)
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['clusters'] }); toast.success(t('settings.clusterAdded')); setOpened(false); setForm(empty) },
     onError: (e: any) => toast.error(e?.response?.data?.error || t('settings.clusterAddFailed')),
   })
-
   const editMut = useMutation({
     mutationFn: async (f: FormState) => (await api.put(`/clusters/${editCluster!.id}`, f)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['clusters'] })
-      toast.success(t('settings.clusterUpdated'))
-      setEditCluster(null)
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['clusters'] }); toast.success(t('settings.clusterUpdated')); setEditCluster(null) },
     onError: (e: any) => toast.error(e?.response?.data?.error || t('settings.clusterUpdateFailed')),
   })
-
   const deleteMut = useMutation({
     mutationFn: async (id: number) => api.delete(`/clusters/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['clusters'] }),
@@ -77,107 +62,119 @@ export function SettingsPage() {
 
   function openEdit(c: Cluster) {
     setEditForm({
-      name: c.name,
-      admin_endpoint: c.admin_endpoint,
-      admin_token: '',
-      s3_endpoint: c.s3_endpoint,
-      s3_region: c.s3_region,
-      s3_access_key: c.s3_access_key,
-      s3_secret_key: '',
-      is_default: c.is_default,
+      name: c.name, admin_endpoint: c.admin_endpoint, admin_token: '',
+      s3_endpoint: c.s3_endpoint, s3_region: c.s3_region,
+      s3_access_key: c.s3_access_key, s3_secret_key: '', is_default: c.is_default,
     })
     setEditCluster(c)
   }
 
   return (
-    <Stack>
-      <h3>{t('settings.appearance')}</h3>
-      <Card withBorder>
-        <Stack>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <h3 style={{ margin: 0 }}>{t('settings.appearance')}</h3>
+      <Card>
+        <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <span>{t('settings.colorMode')}</span>
-            <SegmentedControl
-              value={colorScheme}
-              onChange={(v) => applyColorScheme(v as 'light' | 'dark' | 'auto')}
-              data={[{ label: t('settings.light'), value: 'light' }, { label: t('settings.dark'), value: 'dark' }, { label: t('settings.auto'), value: 'auto' }]}
-            />
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t('settings.colorMode')}</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(['light', 'dark', 'auto'] as const).map((v) => (
+                <Button key={v} variant={colorScheme === v ? 'primary' : 'secondary'} size="sm" onClick={() => applyColorScheme(v)}>
+                  {v === 'light' ? t('settings.light') : v === 'dark' ? t('settings.dark') : t('settings.auto')}
+                </Button>
+              ))}
+            </div>
           </div>
           <div>
-            <span>{t('settings.language')}</span>
-            <Select
-              value={i18n.language}
-              onChange={(v) => { if (v) { i18n.changeLanguage(v); localStorage.setItem('lang', v) } }}
-              data={SUPPORTED_LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
-              allowDeselect={false}
-            />
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{t('settings.language')}</div>
+            <Select value={i18n.language} onValueChange={(v) => { if (v) { i18n.changeLanguage(v); localStorage.setItem('lang', v) } }}>
+              {SUPPORTED_LANGUAGES.map((l) => (<SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>))}
+            </Select>
           </div>
-        </Stack>
+        </div>
       </Card>
 
-      <Group justify="space-between" mt="md">
-        <h3>{t('settings.clusterConnections')}</h3>
-        {isAdmin && <Button leftSection={<IconPlus size={16} />} onClick={open}>{t('settings.addCluster')}</Button>}
-      </Group>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+        <h3 style={{ margin: 0 }}>{t('settings.clusterConnections')}</h3>
+        {isAdmin && <Button onClick={() => setOpened(true)}><IconPlus size={16} /> {t('settings.addCluster')}</Button>}
+      </div>
 
-      <Card withBorder>
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>{t('settings.name')}</Table.Th><Table.Th>{t('settings.adminEndpoint')}</Table.Th>
-              <Table.Th>{t('settings.s3Endpoint')}</Table.Th><Table.Th>{t('settings.default')}</Table.Th><Table.Th /></Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {clusters?.map((c) => (
-              <Table.Tr key={c.id}>
-                <Table.Td>{c.name}</Table.Td>
-                <Table.Td>{c.admin_endpoint}</Table.Td>
-                <Table.Td>{c.s3_endpoint}</Table.Td>
-                <Table.Td>{c.is_default && <Badge color="green">{t('settings.defaultBadge')}</Badge>}</Table.Td>
-                <Table.Td>
-                  {isAdmin && (
-                    <Group gap={4}>
-                      <button onClick={() => openEdit(c)} aria-label="edit">
-                        <IconEdit size={16} />
-                      </button>
-                      <button onClick={() => confirmDelete(c.name, () => deleteMut.mutate(c.id))} aria-label="delete">
-                        <IconTrash size={16} />
-                      </button>
-                    </Group>
-                  )}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+      <Card>
+        <div style={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('settings.name')}</TableHead>
+                <TableHead>{t('settings.adminEndpoint')}</TableHead>
+                <TableHead>{t('settings.s3Endpoint')}</TableHead>
+                <TableHead>{t('settings.default')}</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clusters?.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>{c.name}</TableCell>
+                  <TableCell>{c.admin_endpoint}</TableCell>
+                  <TableCell>{c.s3_endpoint}</TableCell>
+                  <TableCell>{c.is_default && <Badge variant="success">{t('settings.defaultBadge')}</Badge>}</TableCell>
+                  <TableCell>
+                    {isAdmin && (
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(c)}><IconEdit size={16} /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => confirmDelete(c.name, () => deleteMut.mutate(c.id))}><IconTrash size={16} /></Button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
-      <Modal opened={opened} onClose={close} title={t('settings.addCluster')}>
-        <Stack>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} required />
-          <Input value={form.admin_endpoint} onChange={(e) => setForm({ ...form, admin_endpoint: e.currentTarget.value })} required />
-          <Input value={form.admin_token} onChange={(e) => setForm({ ...form, admin_token: e.currentTarget.value })} required />
-          <Input value={form.s3_endpoint} onChange={(e) => setForm({ ...form, s3_endpoint: e.currentTarget.value })} />
-          <Input value={form.s3_region} onChange={(e) => setForm({ ...form, s3_region: e.currentTarget.value })} />
-          <Input value={form.s3_access_key} onChange={(e) => setForm({ ...form, s3_access_key: e.currentTarget.value })} />
-          <Input value={form.s3_secret_key} onChange={(e) => setForm({ ...form, s3_secret_key: e.currentTarget.value })} />
-          <Checkbox label={t('settings.setAsDefault')} checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.currentTarget.checked })} />
-          <Button onClick={() => createMut.mutate(form)} loading={createMut.isPending}>{t('common.save')}</Button>
-        </Stack>
-      </Modal>
+      <Dialog open={opened} onOpenChange={setOpened}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('settings.addCluster')}</DialogTitle></DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label={t('settings.name')} required><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} required /></Field>
+            <Field label={t('settings.adminEndpoint')} required><Input value={form.admin_endpoint} onChange={(e) => setForm({ ...form, admin_endpoint: e.currentTarget.value })} required /></Field>
+            <Field label={t('settings.adminToken')} required><Input value={form.admin_token} onChange={(e) => setForm({ ...form, admin_token: e.currentTarget.value })} required /></Field>
+            <Field label={t('settings.s3Endpoint')}><Input value={form.s3_endpoint} onChange={(e) => setForm({ ...form, s3_endpoint: e.currentTarget.value })} /></Field>
+            <Field label={t('settings.s3Region')}><Input value={form.s3_region} onChange={(e) => setForm({ ...form, s3_region: e.currentTarget.value })} /></Field>
+            <Field label={t('settings.s3AccessKey')}><Input value={form.s3_access_key} onChange={(e) => setForm({ ...form, s3_access_key: e.currentTarget.value })} /></Field>
+            <Field label={t('settings.s3SecretKey')}><Input value={form.s3_secret_key} onChange={(e) => setForm({ ...form, s3_secret_key: e.currentTarget.value })} /></Field>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Checkbox checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.currentTarget.checked })} />
+              {t('settings.setAsDefault')}
+            </label>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => createMut.mutate(form)} disabled={!form.name}>{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Modal opened={editCluster !== null} onClose={() => setEditCluster(null)} title={t('settings.editCluster')}>
-        <Stack>
-          <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.currentTarget.value })} required />
-          <Input value={editForm.admin_endpoint} onChange={(e) => setEditForm({ ...editForm, admin_endpoint: e.currentTarget.value })} required />
-          <Input placeholder={t('settings.keepTokenPlaceholder')} value={editForm.admin_token} onChange={(e) => setEditForm({ ...editForm, admin_token: e.currentTarget.value })} />
-          <Input value={editForm.s3_endpoint} onChange={(e) => setEditForm({ ...editForm, s3_endpoint: e.currentTarget.value })} />
-          <Input value={editForm.s3_region} onChange={(e) => setEditForm({ ...editForm, s3_region: e.currentTarget.value })} />
-          <Input value={editForm.s3_access_key} onChange={(e) => setEditForm({ ...editForm, s3_access_key: e.currentTarget.value })} />
-          <Input placeholder={t('settings.keepSecretPlaceholder')} value={editForm.s3_secret_key} onChange={(e) => setEditForm({ ...editForm, s3_secret_key: e.currentTarget.value })} />
-          <Checkbox label={t('settings.setAsDefault')} checked={editForm.is_default} onChange={(e) => setEditForm({ ...editForm, is_default: e.currentTarget.checked })} />
-          <Button onClick={() => editMut.mutate(editForm)} loading={editMut.isPending}>{t('common.save')}</Button>
-        </Stack>
-      </Modal>
-    </Stack>
+      <Dialog open={editCluster !== null} onOpenChange={(o) => { if (!o) setEditCluster(null) }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t('settings.editCluster')}</DialogTitle></DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label={t('settings.name')} required><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.currentTarget.value })} required /></Field>
+            <Field label={t('settings.adminEndpoint')} required><Input value={editForm.admin_endpoint} onChange={(e) => setEditForm({ ...editForm, admin_endpoint: e.currentTarget.value })} required /></Field>
+            <Field label={t('settings.adminToken')} description={t('settings.adminTokenHint')}><Input placeholder={t('settings.keepTokenPlaceholder')} value={editForm.admin_token} onChange={(e) => setEditForm({ ...editForm, admin_token: e.currentTarget.value })} /></Field>
+            <Field label={t('settings.s3Endpoint')}><Input value={editForm.s3_endpoint} onChange={(e) => setEditForm({ ...editForm, s3_endpoint: e.currentTarget.value })} /></Field>
+            <Field label={t('settings.s3Region')}><Input value={editForm.s3_region} onChange={(e) => setEditForm({ ...editForm, s3_region: e.currentTarget.value })} /></Field>
+            <Field label={t('settings.s3AccessKey')}><Input value={editForm.s3_access_key} onChange={(e) => setEditForm({ ...editForm, s3_access_key: e.currentTarget.value })} /></Field>
+            <Field label={t('settings.s3SecretKey')}><Input placeholder={t('settings.keepSecretPlaceholder')} value={editForm.s3_secret_key} onChange={(e) => setEditForm({ ...editForm, s3_secret_key: e.currentTarget.value })} /></Field>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Checkbox checked={editForm.is_default} onChange={(e) => setEditForm({ ...editForm, is_default: e.currentTarget.checked })} />
+              {t('settings.setAsDefault')}
+            </label>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => editMut.mutate(editForm)} disabled={!editForm.name}>{t('common.save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

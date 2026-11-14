@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Button, Card, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Field, Input, Select, SelectItem, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'h2d-glass-ui'
 import { IconPlus, IconTrash, IconKey } from '@tabler/icons-react'
-import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type AdminUser } from '../api/client'
 import { useAuth } from '../auth/AuthContext'

@@ -1,16 +1,9 @@
-import { Spinner } from 'h2d-glass-ui'
 import { useMemo, useState } from 'react'
-import { ActionIcon, Card, Group, Loader, ScrollArea, SegmentedControl, Table, Text, Title, Tooltip } from '@mantine/core'
-import { LineChart } from '@mantine/charts'
+import { Button, Card, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Spinner } from 'h2d-glass-ui'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer } from 'recharts'
 import { IconChartLine, IconTable } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  api,
-  type BucketUsagePoint,
-  type ClusterUsagePoint,
-  type UsageRange,
-  type UsageSeries,
-} from '../api/client'
+import { api, type BucketUsagePoint, type ClusterUsagePoint, type UsageRange, type UsageSeries } from '../api/client'
 import { fmtBytes } from '../pages/BucketsPage'
 import './UsageChart.css'
 import { useTranslation } from 'react-i18next'
@@ -40,7 +33,6 @@ export function UsageChart(props: Props) {
     while (i < BYTE_UNITS.length - 1 && max >= 1024 ** (i + 1)) i++
     return i
   }
-
   function niceTicks(max: number): number[] {
     if (!(max > 0)) return [0, 1]
     const raw = max / 4
@@ -49,16 +41,12 @@ export function UsageChart(props: Props) {
     const n = Math.ceil(max / step - 1e-9)
     return Array.from({ length: n + 1 }, (_, i) => +(i * step).toFixed(10))
   }
-
   function buildRows(range: UsageRange, points: Point[]): Row[] {
     const empty = { bytes: null, objects: null, dataAvail: null }
-    const pick = (p: Point | undefined) =>
-      p ? { bytes: p.bytes, objects: p.objects, dataAvail: 'dataAvail' in p ? p.dataAvail : null } : empty
-
+    const pick = (p: Point | undefined) => p ? { bytes: p.bytes, objects: p.objects, dataAvail: 'dataAvail' in p ? p.dataAvail : null } : empty
     if (range === '24h') {
       const byHour = new Map(points.map((p) => [Math.floor(p.ts / 3600), p]))
-      const end = new Date()
-      end.setMinutes(0, 0, 0)
+      const end = new Date(); end.setMinutes(0, 0, 0)
       return Array.from({ length: 24 }, (_, i) => {
         const d = new Date(end.getTime() - (23 - i) * 3600_000)
         return { label: `${pad(d.getHours())}:00`, ...pick(byHour.get(Math.floor(d.getTime() / 3600_000))) }
@@ -94,10 +82,7 @@ export function UsageChart(props: Props) {
     metric === 'objects'
       ? [{ name: 'objects', label: t('usage.objects'), color: 'var(--usage-series-1)' }]
       : props.kind === 'cluster'
-        ? [
-            { name: 'bytes', label: t('usage.used'), color: 'var(--usage-series-1)' },
-            { name: 'dataAvail', label: t('usage.free'), color: 'var(--usage-series-2)' },
-          ]
+        ? [{ name: 'bytes', label: t('usage.used'), color: 'var(--usage-series-1)' }, { name: 'dataAvail', label: t('usage.free'), color: 'var(--usage-series-2)' }]
         : [{ name: 'bytes', label: t('usage.size'), color: 'var(--usage-series-1)' }]
   const fmt = metric === 'objects' ? fmtCount : fmtBytes
   const fmtOrDash = (v: number | null | undefined) => (v == null ? '—' : fmt(v))
@@ -119,84 +104,77 @@ export function UsageChart(props: Props) {
   const fmtTick = (v: number) => (metric === 'objects' ? fmtCount(v) : `${+v.toFixed(2)} ${BYTE_UNITS[unit]}`)
 
   return (
-    <Card withBorder>
-      <Group justify="space-between" wrap="nowrap">
-        <h5>{t('usage.historyTitle')}</h5>
-        <Tooltip label={asTable ? t('usage.viewChart') : t('usage.viewTable')}>
-          <button  onClick={() => setAsTable((v) => !v)} aria-label={asTable ? t('usage.viewChart') : t('usage.viewTable')}>
+    <Card>
+      <div style={{ padding: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h5 style={{ margin: 0 }}>{t('usage.historyTitle')}</h5>
+          <Button variant="ghost" size="sm" onClick={() => setAsTable((v) => !v)} aria-label={asTable ? t('usage.viewChart') : t('usage.viewTable')}>
             {asTable ? <IconChartLine size={18} /> : <IconTable size={18} />}
-          </button>
-        </Tooltip>
-      </Group>
-      <Group gap="xs">
-        <SegmentedControl size="xs" value={range} onChange={(v) => setRange(v as UsageRange)} data={RANGES.map(({ value, label }) => ({ value, label }))} />
-        <SegmentedControl
-          size="xs"
-          value={metric}
-          onChange={(v) => setMetric(v as Metric)}
-          data={[{ value: 'bytes', label: t('usage.size') }, { value: 'objects', label: t('usage.objects') }]}
-        />
-      </Group>
+          </Button>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+          <select value={range} onChange={(e) => setRange(e.target.value as UsageRange)} style={{ padding: 4 }}>
+            {RANGES.map(({ value, label }) => (<option key={value} value={value}>{label}</option>))}
+          </select>
+          <select value={metric} onChange={(e) => setMetric(e.target.value as Metric)} style={{ padding: 4 }}>
+            <option value="bytes">{t('usage.size')}</option>
+            <option value="objects">{t('usage.objects')}</option>
+          </select>
+        </div>
 
-      {query.isLoading && <Spinner size="sm" />}
-      {query.error && <span>{t('usage.loadFailed')}</span>}
-      {query.data && points.length === 0 && (
-        <span>{t('usage.noData')}</span>
-      )}
+        {query.isLoading && <Spinner size="sm" />}
+        {query.error && <span style={{ color: 'red', fontSize: 13 }}>{t('usage.loadFailed')}</span>}
+        {query.data && points.length === 0 && (
+          <span style={{ opacity: 0.6, fontSize: 13 }}>{t('usage.noData')}</span>
+        )}
 
-      {points.length > 0 && (
-        <>
-          <Group gap="lg">
-            {series.map((s) => (
-              <Group key={s.name} gap={6} wrap="nowrap">
-                <span className="usage-key" style={{ background: s.color }} />
-                <span>{s.label}</span>
-                <span>{fmtOrDash(latest?.[s.name as keyof Row] as number | null)}</span>
-              </Group>
-            ))}
-          </Group>
+        {points.length > 0 && (
+          <>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 8, flexWrap: 'wrap' }}>
+              {series.map((s) => (
+                <div key={s.name} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ width: 12, height: 12, background: s.color, display: 'inline-block' }} />
+                  <span style={{ fontSize: 13, opacity: 0.7 }}>{s.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtOrDash(latest?.[s.name as keyof Row] as number | null)}</span>
+                </div>
+              ))}
+            </div>
 
-          {asTable ? (
-            <ScrollArea h={260}>
-              <Table striped fz="sm">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>{range === '24h' ? t('usage.hour') : t('usage.day')}</Table.Th>
-                    {series.map((s) => <Table.Th key={s.name} ta="right">{s.label}</Table.Th>)}
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {[...filled].reverse().map((r) => (
-                    <Table.Tr key={r.label}>
-                      <Table.Td>{r.label}</Table.Td>
-                      {series.map((s) => <Table.Td key={s.name} ta="right">{fmtOrDash(r[s.name as keyof Row] as number | null)}</Table.Td>)}
-                    </Table.Tr>
+            {asTable ? (
+              <div style={{ height: 260, overflow: 'auto' }}>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{range === '24h' ? t('usage.hour') : t('usage.day')}</TableHead>
+                      {series.map((s) => <TableHead key={s.name}>{s.label}</TableHead>)}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...filled].reverse().map((r) => (
+                      <TableRow key={r.label}>
+                        <TableCell>{r.label}</TableCell>
+                        {series.map((s) => <TableCell key={s.name}>{fmtOrDash(r[s.name as keyof Row] as number | null)}</TableCell>)}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={chartRows}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" minTickGap={16} />
+                  <YAxis width={72} ticks={ticks} domain={[0, ticks[ticks.length - 1]]} tickFormatter={fmtTick} />
+                  <RTooltip formatter={(v: any) => fmtChart(v)} />
+                  {series.map((s) => (
+                    <Line key={s.name} type="linear" dataKey={s.name} name={s.label} stroke={s.color} strokeWidth={2} dot={filled.length <= 31 ? { r: 4 } : false} connectNulls={false} />
                   ))}
-                </Table.Tbody>
-              </Table>
-            </ScrollArea>
-          ) : (
-            <LineChart
-              h={260}
-              data={chartRows}
-              dataKey="label"
-              series={series}
-              curveType="linear"
-              connectNulls={false}
-              strokeWidth={2}
-              withDots={filled.length <= 31}
-              dotProps={{ r: 4, strokeWidth: 2, stroke: 'var(--mantine-color-body)' }}
-              activeDotProps={{ r: 5, strokeWidth: 2, stroke: 'var(--mantine-color-body)' }}
-              gridAxis="x"
-              strokeDasharray="0"
-              tickLine="none"
-              valueFormatter={fmtChart}
-              xAxisProps={{ minTickGap: 16 }}
-              yAxisProps={{ width: 72, ticks, domain: [0, ticks[ticks.length - 1]], tickFormatter: fmtTick }}
-            />
-          )}
-        </>
-      )}
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </>
+        )}
+      </div>
     </Card>
   )
 }

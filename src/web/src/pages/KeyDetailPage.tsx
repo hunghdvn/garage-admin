@@ -1,13 +1,11 @@
-import { toast , Input , Spinner } from 'h2d-glass-ui'
 import { useEffect, useState } from 'react'
-import {
-  ActionIcon, Alert, Anchor, Badge, Breadcrumbs, Button, Card, Code, CopyButton, Group, Loader, Stack, Switch, Table, Text, TextInput, Title, Tooltip,
-} from '@mantine/core'
+import { Alert, Badge, Button, Card, Field, Input, Spinner, Switch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from 'h2d-glass-ui'
+import { IconCopy, IconCheck, IconAlertTriangle } from '@tabler/icons-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
-import { IconCopy, IconCheck, IconAlertTriangle } from '@tabler/icons-react'
 import { api, type KeyInfo } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { toast } from 'h2d-glass-ui'
 import { useTranslation } from 'react-i18next'
 
 export function KeyDetailPage() {
@@ -38,11 +36,7 @@ export function KeyDetailPage() {
 
   const updateMut = useMutation({
     mutationFn: async (body: unknown) => (await api.post(`/keys/${id}`, body)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['key', id] })
-      qc.invalidateQueries({ queryKey: ['keys'] })
-      toast.success(t('common.updated'))
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['key', id] }); qc.invalidateQueries({ queryKey: ['keys'] }); toast.success(t('common.updated')) },
     onError: () => toast.error(t('common.updateFailed')),
   })
 
@@ -61,85 +55,81 @@ export function KeyDetailPage() {
   if (isLoading || !key) return <Spinner />
 
   return (
-    <Stack>
-      <Breadcrumbs>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
         <Link to="/keys">{t('nav.accessKeys')}</Link>
+        <span>/</span>
         <span>{key.name || key.accessKeyId}</span>
-      </Breadcrumbs>
-      <h3>{key.name || key.accessKeyId}</h3>
+      </div>
+      <h3 style={{ margin: 0 }}>{key.name || key.accessKeyId}</h3>
 
-      <Card withBorder>
-        <Stack>
-          <Group><span>{t('keyDetail.accessKeyId')}</span><code>{key.accessKeyId}</code></Group>
-          <Group><span>{t('keyDetail.status')}</span>{key.expired ? <Badge color="red">{t('keys.expired')}</Badge> : <Badge color="green">{t('keys.active')}</Badge>}</Group>
+      <Card>
+        <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}><span style={{ width: 140, opacity: 0.7 }}>{t('keyDetail.accessKeyId')}</span><code>{key.accessKeyId}</code></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ width: 140, opacity: 0.7 }}>{t('keyDetail.status')}</span>{key.expired ? <Badge variant="danger">{t('keys.expired')}</Badge> : <Badge variant="success">{t('keys.active')}</Badge>}</div>
           {isAdmin && (
             secret ? (
-              <Stack gap="xs">
-                <Alert icon={<IconAlertTriangle size={16} />} color="yellow" title={t('keyDetail.sensitiveInfo')}>
-                  {t('keyDetail.secretShareSecurely')}
-                </Alert>
-                <Group>
-                  <span>{t('keyDetail.secretKey')}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Alert status="warning" icon={<IconAlertTriangle size={16} />} title={t('keyDetail.sensitiveInfo')}>{t('keyDetail.secretShareSecurely')}</Alert>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ width: 140, opacity: 0.7 }}>{t('keyDetail.secretKey')}</span>
                   <code>{secret}</code>
-                  <CopyButton value={secret} timeout={2000}>
-                    {({ copied, copy }) => (
-                      <Tooltip label={copied ? t('common.copied') : t('common.copy')} withArrow position="right">
-                        <button color={copied ? 'teal' : 'gray'} onClick={copy}>
-                          {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                        </button>
-                      </Tooltip>
-                    )}
-                  </CopyButton>
-                </Group>
-              </Stack>
+                  <Button variant="ghost" size="sm" onClick={() => navigator.clipboard.writeText(secret)}><IconCopy size={16} /></Button>
+                </div>
+              </div>
             ) : (
-              <Group>
-                <span>{t('keyDetail.secretKey')}</span>
-                <Button variant="light" size="xs" loading={revealLoading} onClick={handleRevealSecret}>
-                  {t('keyDetail.revealSecret')}
-                </Button>
-              </Group>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ width: 140, opacity: 0.7 }}>{t('keyDetail.secretKey')}</span>
+                <Button variant="secondary" size="sm" onClick={handleRevealSecret} disabled={revealLoading}>{t('keyDetail.revealSecret')}</Button>
+              </div>
             )
           )}
-          <Group align="end">
-            <Input value={name} onChange={(e) => setName(e.currentTarget.value)} disabled={!isAdmin} />
-            {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ name })}>{t('keyDetail.rename')}</Button>}
-          </Group>
-          <Switch label={t('keyDetail.allowCreateBucket')} checked={createBucket} disabled={!isAdmin}
-            onChange={(e) => { setCreateBucket(e.currentTarget.checked); updateMut.mutate({ create_bucket: e.currentTarget.checked }) }} />
-          <Group align="end">
-            <Input type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.currentTarget.value)} disabled={!isAdmin} />
-            {isAdmin && <Button variant="light" onClick={() => updateMut.mutate({ expiration: new Date(expiry).toISOString() })} disabled={!expiry}>{t('keyDetail.setExpiry')}</Button>}
-            {isAdmin && <Button variant="subtle" onClick={() => updateMut.mutate({ never_expires: true })}>{t('keyDetail.removeExpiry')}</Button>}
-          </Group>
-        </Stack>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <Field label={t('keys.name')}><Input value={name} onChange={(e) => setName(e.currentTarget.value)} disabled={!isAdmin} /></Field>
+            {isAdmin && <Button variant="secondary" onClick={() => updateMut.mutate({ name })}>{t('keyDetail.rename')}</Button>}
+          </div>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Switch checked={createBucket} disabled={!isAdmin} onChange={(e) => { setCreateBucket(e.currentTarget.checked); updateMut.mutate({ create_bucket: e.currentTarget.checked }) }} />
+            {t('keyDetail.allowCreateBucket')}
+          </label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <Field label={t('keyDetail.expiration')}><Input type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.currentTarget.value)} disabled={!isAdmin} /></Field>
+            {isAdmin && <Button variant="secondary" onClick={() => updateMut.mutate({ expiration: new Date(expiry).toISOString() })} disabled={!expiry}>{t('keyDetail.setExpiry')}</Button>}
+            {isAdmin && <Button variant="ghost" onClick={() => updateMut.mutate({ never_expires: true })}>{t('keyDetail.removeExpiry')}</Button>}
+          </div>
+        </div>
       </Card>
 
-      <Card withBorder>
-        <h5>{t('keyDetail.accessibleBuckets')}</h5>
-        <Table>
-          <Table.Thead>
-            <Table.Tr><Table.Th>{t('nav.buckets')}</Table.Th><Table.Th>{t('bucketDetail.read')}</Table.Th><Table.Th>{t('bucketDetail.write')}</Table.Th><Table.Th>{t('bucketDetail.owner')}</Table.Th></Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {key.buckets.map((b) => (
-              <Table.Tr key={b.id}>
-                <Table.Td>
-                  <Link to={`/buckets/${b.id}`}>
-                    {b.globalAliases[0] ?? b.id.slice(0, 12)}
-                  </Link>
-                </Table.Td>
-                <Table.Td>{b.permissions.read ? '✓' : ''}</Table.Td>
-                <Table.Td>{b.permissions.write ? '✓' : ''}</Table.Td>
-                <Table.Td>{b.permissions.owner ? '✓' : ''}</Table.Td>
-              </Table.Tr>
-            ))}
-            {key.buckets.length === 0 && (
-              <Table.Tr><Table.Td colSpan={4}><span>{t('keyDetail.noBucketPermissions')}</span></Table.Td></Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
+      <Card>
+        <div style={{ padding: 8 }}>
+          <h5 style={{ margin: '0 0 8px' }}>{t('keyDetail.accessibleBuckets')}</h5>
+          <div style={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('nav.buckets')}</TableHead>
+                  <TableHead>{t('bucketDetail.read')}</TableHead>
+                  <TableHead>{t('bucketDetail.write')}</TableHead>
+                  <TableHead>{t('bucketDetail.owner')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {key.buckets.map((b) => (
+                  <TableRow key={b.id}>
+                    <TableCell><Link to={`/buckets/${b.id}`}>{b.globalAliases[0] ?? b.id.slice(0, 12)}</Link></TableCell>
+                    <TableCell>{b.permissions.read ? '✓' : ''}</TableCell>
+                    <TableCell>{b.permissions.write ? '✓' : ''}</TableCell>
+                    <TableCell>{b.permissions.owner ? '✓' : ''}</TableCell>
+                  </TableRow>
+                ))}
+                {key.buckets.length === 0 && (
+                  <TableRow><TableCell colSpan={4}>{t('keyDetail.noBucketPermissions')}</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </Card>
-    </Stack>
+    </div>
   )
 }
