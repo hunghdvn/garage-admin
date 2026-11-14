@@ -28,10 +28,16 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o /out/garage-admin ./cmd/garage-admin
 
 # --- Stage 3: runtime ---
-FROM alpine:3.20
-RUN apk add --no-cache ca-certificates && mkdir -p /data
+FROM alpine:3.22
+# Fixed UID/GID so file ownership on the /data volume is stable across rebuilds.
+RUN apk add --no-cache ca-certificates su-exec \
+    && addgroup -g 10001 -S garage \
+    && adduser -u 10001 -S -D -H -G garage -s /sbin/nologin garage \
+    && mkdir -p /data && chown garage:garage /data
 COPY --from=backend /out/garage-admin /usr/local/bin/garage-admin
+# Starts as root only to fix /data ownership, then drops to the garage user.
+COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 ENV APP_PORT=8080 APP_DB_PATH=/data/app.db
 EXPOSE 8080
 VOLUME /data
-ENTRYPOINT ["/usr/local/bin/garage-admin"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
