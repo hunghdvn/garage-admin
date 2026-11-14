@@ -33,7 +33,7 @@ func newGarageBackedAPI(t *testing.T, role string, garageHandler http.HandlerFun
 	srv := &Server{DB: d, Auth: auth.NewService(d), Cipher: cph}
 	r := srv.Routes()
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
+	r.ServeHTTP(rec, jsonReq("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
 	return r, rec.Result().Cookies()[0]
 }
 
@@ -42,7 +42,7 @@ func TestListBucketsProxy(t *testing.T) {
 		w.Write([]byte(`[{"id":"abc","created":"x","globalAliases":["files"],"localAliases":[]}]`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/buckets", nil)
+	req := jsonReq("GET", "/api/buckets", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "files") {
@@ -53,7 +53,7 @@ func TestListBucketsProxy(t *testing.T) {
 func TestCreateBucketRequiresAdmin(t *testing.T) {
 	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/buckets", strings.NewReader(`{"global_alias":"x"}`))
+	req := jsonReq("POST", "/api/buckets", strings.NewReader(`{"global_alias":"x"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -69,7 +69,7 @@ func TestCreateBucketProxiesGlobalAlias(t *testing.T) {
 		w.Write([]byte(`{"id":"nid","created":"x","globalAliases":["newb"],"websiteAccess":false,"keys":[],"objects":0,"bytes":0,"unfinishedUploads":0,"unfinishedMultipartUploads":0,"quotas":{"maxSize":null,"maxObjects":null}}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/buckets", strings.NewReader(`{"global_alias":"newb"}`))
+	req := jsonReq("POST", "/api/buckets", strings.NewReader(`{"global_alias":"newb"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), "nid") {
@@ -83,7 +83,7 @@ func TestCreateBucketPropagatesGarage400(t *testing.T) {
 		w.Write([]byte(`{"code":"InvalidRequest","message":"Invalid bucket name"}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/buckets", strings.NewReader(`{"global_alias":"BadName"}`))
+	req := jsonReq("POST", "/api/buckets", strings.NewReader(`{"global_alias":"BadName"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -101,7 +101,7 @@ func TestPermissionEndpointProxies(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/buckets/abc/permissions",
+	req := jsonReq("POST", "/api/buckets/abc/permissions",
 		strings.NewReader(`{"access_key_id":"GK1","read":true,"write":true,"owner":false,"deny":false}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)

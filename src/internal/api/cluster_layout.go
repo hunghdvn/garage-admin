@@ -58,7 +58,7 @@ func (s *Server) handleStageLayout(w http.ResponseWriter, r *http.Request) {
 			Remove   bool     `json:"remove"`
 		} `json:"changes"`
 	}
-	if err := decodeJSON(r, &body); err != nil || len(body.Changes) == 0 {
+	if err := decodeJSON(w, r, &body); err != nil || len(body.Changes) == 0 {
 		writeError(w, http.StatusBadRequest, "changes are required")
 		return
 	}
@@ -103,7 +103,7 @@ func (s *Server) handleApplyLayout(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Version int `json:"version"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.Version == 0 {
+	if err := decodeJSON(w, r, &body); err != nil || body.Version == 0 {
 		writeError(w, http.StatusBadRequest, "version is required")
 		return
 	}
@@ -138,7 +138,7 @@ func (s *Server) handleConnectNodes(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Nodes []string `json:"nodes"`
 	}
-	if err := decodeJSON(r, &body); err != nil || len(body.Nodes) == 0 {
+	if err := decodeJSON(w, r, &body); err != nil || len(body.Nodes) == 0 {
 		writeError(w, http.StatusBadRequest, "nodes are required")
 		return
 	}

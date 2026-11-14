@@ -60,7 +60,7 @@ func (s *Server) handleListClusters(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateCluster(w http.ResponseWriter, r *http.Request) {
 	var in clusterInput
-	if err := decodeJSON(r, &in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
@@ -93,12 +93,18 @@ func (s *Server) handleUpdateCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in clusterInput
-	if err := decodeJSON(r, &in); err != nil {
+	if err := decodeJSON(w, r, &in); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 	if !validClusterInput(&in) {
 		writeError(w, http.StatusBadRequest, "name and admin_endpoint are required")
+		return
+	}
+	// The stored token must not follow a changed endpoint, or an admin could
+	// repoint it at their own server and receive the bearer token.
+	if in.AdminToken == "" && normEndpoint(in.AdminEndpoint) != normEndpoint(existing.AdminEndpoint) {
+		writeError(w, http.StatusBadRequest, "admin_token must be re-entered when admin_endpoint changes")
 		return
 	}
 	c, err := s.clusterFromInputPreserving(&in, existing)
@@ -112,6 +118,10 @@ func (s *Server) handleUpdateCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, clusterView(c))
+}
+
+func normEndpoint(e string) string {
+	return strings.TrimRight(strings.TrimSpace(e), "/")
 }
 
 func (s *Server) handleDeleteCluster(w http.ResponseWriter, r *http.Request) {

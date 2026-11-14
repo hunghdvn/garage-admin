@@ -10,7 +10,7 @@ import (
 func TestCleanupUploadsRequiresAdmin(t *testing.T) {
 	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/buckets/bid/cleanup-uploads", strings.NewReader(`{"older_than_secs":3600}`))
+	req := jsonReq("POST", "/api/buckets/bid/cleanup-uploads", strings.NewReader(`{"older_than_secs":3600}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -26,7 +26,7 @@ func TestInspectObjectProxy(t *testing.T) {
 		w.Write([]byte(`{"key":"f.txt","versions":[]}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/buckets/bid/inspect?key=f.txt", nil)
+	req := jsonReq("GET", "/api/buckets/bid/inspect?key=f.txt", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "versions") {
@@ -45,7 +45,7 @@ func TestLocalAliasProxy(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/buckets/bid/aliases", strings.NewReader(`{"alias":"al","local":true,"access_key_id":"GK1"}`))
+	req := jsonReq("POST", "/api/buckets/bid/aliases", strings.NewReader(`{"alias":"al","local":true,"access_key_id":"GK1"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(gotBody, "localAlias") || !strings.Contains(gotBody, "GK1") {
@@ -64,7 +64,7 @@ func TestCreateKeyWithExpirationProxy(t *testing.T) {
 		w.Write([]byte(`{"accessKeyId":"GK9","secretAccessKey":"S","created":"x","name":"k","expiration":null,"expired":false,"permissions":{"createBucket":false},"buckets":[]}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/keys", strings.NewReader(`{"name":"k","expiration":"2030-01-01T00:00:00Z"}`))
+	req := jsonReq("POST", "/api/keys", strings.NewReader(`{"name":"k","expiration":"2030-01-01T00:00:00Z"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated || !strings.Contains(gotBody, "expiration") {

@@ -33,7 +33,7 @@ func newUsageAPI(t *testing.T) (http.Handler, *http.Cookie, *db.DB, int64) {
 	}
 	r := (&Server{DB: d, Auth: auth.NewService(d), Cipher: cph}).Routes()
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
+	r.ServeHTTP(rec, jsonReq("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
 	return r, rec.Result().Cookies()[0], d, c.ID
 }
 
@@ -45,7 +45,7 @@ type usageResp struct {
 func getUsage(t *testing.T, r http.Handler, cookie *http.Cookie, path string) (int, usageResp, string) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", path, nil)
+	req := jsonReq("GET", path, nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	var out usageResp
@@ -141,7 +141,7 @@ func TestUsageEmptyIsArray(t *testing.T) {
 func TestUsageRequiresLogin(t *testing.T) {
 	r, _, _, _ := newUsageAPI(t)
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest("GET", "/api/usage/cluster?range=24h", nil))
+	r.ServeHTTP(rec, jsonReq("GET", "/api/usage/cluster?range=24h", nil))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("code=%d", rec.Code)
 	}

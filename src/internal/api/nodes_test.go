@@ -15,7 +15,7 @@ func TestNodeInfoProxy(t *testing.T) {
 		w.Write([]byte(`{"success":{"n1":{"hostname":"h"}},"error":{}}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/nodes/info?node=self", nil)
+	req := jsonReq("GET", "/api/nodes/info?node=self", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "hostname") {
@@ -31,7 +31,7 @@ func TestListWorkersDefaultsNodeSelf(t *testing.T) {
 		w.Write([]byte(`{"success":{"n1":[]},"error":{}}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/nodes/workers", nil) // no node param → default self
+	req := jsonReq("GET", "/api/nodes/workers", nil) // no node param → default self
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -42,7 +42,7 @@ func TestListWorkersDefaultsNodeSelf(t *testing.T) {
 func TestRepairRequiresAdmin(t *testing.T) {
 	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/nodes/repair?node=self", strings.NewReader(`{"repair_type":"blocks"}`))
+	req := jsonReq("POST", "/api/nodes/repair?node=self", strings.NewReader(`{"repair_type":"blocks"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -60,7 +60,7 @@ func TestPurgeRequiresAdminAndProxies(t *testing.T) {
 		w.Write([]byte(`{"success":{},"error":{}}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/nodes/blocks/purge?node=self", strings.NewReader(`{"block_hashes":["ab","cd"]}`))
+	req := jsonReq("POST", "/api/nodes/blocks/purge?node=self", strings.NewReader(`{"block_hashes":["ab","cd"]}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || gotPath != "/v2/PurgeBlocks" {

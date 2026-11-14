@@ -1,6 +1,9 @@
 package auth
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestHashAndVerify(t *testing.T) {
 	hash, err := HashPassword("hunter2")
@@ -15,5 +18,20 @@ func TestHashAndVerify(t *testing.T) {
 	}
 	if VerifyPassword(hash, "wrong") {
 		t.Error("wrong password should not verify")
+	}
+}
+
+func TestValidatePassword(t *testing.T) {
+	for p, ok := range map[string]bool{
+		"":                      false,
+		"1234567":               false,
+		"12345678":              true,
+		strings.Repeat("a", 72): true,
+		strings.Repeat("a", 73): false,
+		strings.Repeat("é", 37): false, // 74 bytes
+	} {
+		if err := ValidatePassword(p); (err == nil) != ok {
+			t.Errorf("ValidatePassword(len %d) err=%v, want ok=%v", len(p), err, ok)
+		}
 	}
 }

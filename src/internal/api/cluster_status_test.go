@@ -30,11 +30,11 @@ func TestClusterHealthProxy(t *testing.T) {
 	r := srv.Routes()
 
 	loginRec := httptest.NewRecorder()
-	r.ServeHTTP(loginRec, httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
+	r.ServeHTTP(loginRec, jsonReq("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
 	cookie := loginRec.Result().Cookies()[0]
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/cluster/health", nil)
+	req := jsonReq("GET", "/api/cluster/health", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

@@ -23,6 +23,16 @@ type ctxKey int
 
 const userKey ctxKey = 0
 
+// dummyHash is a valid bcrypt hash (default cost) of a random string, compared
+// against when the username is unknown.
+var dummyHash = func() string {
+	h, err := HashPassword("garage-admin-dummy-password")
+	if err != nil {
+		panic(err)
+	}
+	return h
+}()
+
 // Service handles login, logout, and request authentication.
 type Service struct {
 	db     *db.DB
@@ -39,6 +49,9 @@ func (s *Service) SetSecure(v bool) { s.secure = v }
 func (s *Service) Login(w http.ResponseWriter, username, password string) (*db.User, error) {
 	u, err := s.db.GetUserByUsername(username)
 	if errors.Is(err, db.ErrNotFound) {
+		// Burn the same bcrypt cost as a real check so response time does not
+		// reveal which usernames exist.
+		VerifyPassword(dummyHash, password)
 		return nil, ErrInvalidCredentials
 	}
 	if err != nil {
@@ -67,6 +80,16 @@ func (s *Service) Login(w http.ResponseWriter, username, password string) (*db.U
 	return u, nil
 }
 
+// DeleteOtherSessions revokes all of the user's sessions except the one the
+// request is using (if any).
+func (s *Service) DeleteOtherSessions(r *http.Request, userID int64) error {
+	keep := ""
+	if c, err := r.Cookie(cookieName); err == nil {
+		keep = c.Value
+	}
+	return s.db.DeleteUserSessionsExcept(userID, keep)
+}
+
 // Logout deletes the current session and clears the cookie.
 func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(cookieName); err == nil {
@@ -91,7 +114,8 @@ func (s *Service) RequireAuth(next http.Handler) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if exp, perr := time.Parse(time.RFC3339, sess.ExpiresAt); perr == nil && time.Now().After(exp) {
+		// An unparseable expiry is treated as expired (fail closed).
+		if exp, perr := time.Parse(time.RFC3339, sess.ExpiresAt); perr != nil || time.Now().After(exp) {
 			s.db.DeleteSession(c.Value)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return

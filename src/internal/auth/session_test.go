@@ -107,3 +107,26 @@ func TestRequireAdminRejectsReadonly(t *testing.T) {
 		t.Errorf("code = %d, want 403", rec.Code)
 	}
 }
+
+func TestLoginUnknownUserFails(t *testing.T) {
+	svc := NewService(newDB(t))
+	if _, err := svc.Login(httptest.NewRecorder(), "ghost", "whatever1"); err != ErrInvalidCredentials {
+		t.Errorf("err = %v, want ErrInvalidCredentials", err)
+	}
+}
+
+func TestRequireAuthRejectsUnparseableExpiry(t *testing.T) {
+	d := newDB(t)
+	hash, _ := HashPassword("pw")
+	u, _ := d.CreateUser("alice", hash, "admin")
+	d.CreateSession("badexp", u.ID, "not-a-date")
+	svc := NewService(d)
+	h := svc.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	req := httptest.NewRequest("GET", "/", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: "badexp"})
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("code = %d, want 401", rec.Code)
+	}
+}

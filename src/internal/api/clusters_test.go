@@ -25,7 +25,7 @@ func newClusterAPITest(t *testing.T, role string) (*Server, *http.Cookie) {
 	srv := &Server{DB: d, Auth: auth.NewService(d), Cipher: cph}
 
 	rec := httptest.NewRecorder()
-	srv.Routes().ServeHTTP(rec, httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
+	srv.Routes().ServeHTTP(rec, jsonReq("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
 	return srv, rec.Result().Cookies()[0]
 }
 
@@ -35,7 +35,7 @@ func TestCreateListClusterHidesSecret(t *testing.T) {
 
 	body := `{"name":"local","admin_endpoint":"http://192.168.101.8:3903","admin_token":"tok","s3_endpoint":"http://192.168.101.8:3900","s3_region":"garage","s3_access_key":"GK","s3_secret_key":"sek","is_default":true}`
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/clusters", strings.NewReader(body))
+	req := jsonReq("POST", "/api/clusters", strings.NewReader(body))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -46,7 +46,7 @@ func TestCreateListClusterHidesSecret(t *testing.T) {
 	}
 
 	listRec := httptest.NewRecorder()
-	listReq := httptest.NewRequest("GET", "/api/clusters", nil)
+	listReq := jsonReq("GET", "/api/clusters", nil)
 	listReq.AddCookie(cookie)
 	r.ServeHTTP(listRec, listReq)
 	if !strings.Contains(listRec.Body.String(), "local") {
@@ -60,7 +60,7 @@ func TestCreateListClusterHidesSecret(t *testing.T) {
 func TestReadonlyCannotCreateCluster(t *testing.T) {
 	srv, cookie := newClusterAPITest(t, "readonly")
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/clusters", strings.NewReader(`{"name":"x","admin_endpoint":"http://y","admin_token":"t"}`))
+	req := jsonReq("POST", "/api/clusters", strings.NewReader(`{"name":"x","admin_endpoint":"http://y","admin_token":"t"}`))
 	req.AddCookie(cookie)
 	srv.Routes().ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -71,7 +71,7 @@ func TestReadonlyCannotCreateCluster(t *testing.T) {
 func TestCreateClusterRejectsBlankName(t *testing.T) {
 	srv, cookie := newClusterAPITest(t, "admin")
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/clusters", strings.NewReader(`{"name":"  ","admin_endpoint":"http://x","admin_token":"t"}`))
+	req := jsonReq("POST", "/api/clusters", strings.NewReader(`{"name":"  ","admin_endpoint":"http://x","admin_token":"t"}`))
 	req.AddCookie(cookie)
 	srv.Routes().ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {

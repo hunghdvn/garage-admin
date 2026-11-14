@@ -53,7 +53,7 @@ func (s *Server) handleCreateAdminToken(w http.ResponseWriter, r *http.Request) 
 		Scope      []string `json:"scope"`
 		Expiration *string  `json:"expiration"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.Name == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
@@ -86,7 +86,7 @@ func (s *Server) handleUpdateAdminToken(w http.ResponseWriter, r *http.Request) 
 		Expiration   *string  `json:"expiration"`
 		NeverExpires *bool    `json:"never_expires"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}

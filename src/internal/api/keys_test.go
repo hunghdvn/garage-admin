@@ -16,7 +16,7 @@ func TestListKeysProxy(t *testing.T) {
 		w.Write([]byte(`[{"accessKeyId":"GK1","name":"k","created":"x","expiration":null,"expired":false,"permissions":{"createBucket":false},"buckets":[]}]`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/keys", nil)
+	req := jsonReq("GET", "/api/keys", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "GK1") {
@@ -28,7 +28,7 @@ func TestCreateKeyReturnsSecretAndRequiresAdmin(t *testing.T) {
 	// readonly forbidden
 	rRO, cRO := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
 	recRO := httptest.NewRecorder()
-	reqRO := httptest.NewRequest("POST", "/api/keys", strings.NewReader(`{"name":"k"}`))
+	reqRO := jsonReq("POST", "/api/keys", strings.NewReader(`{"name":"k"}`))
 	reqRO.AddCookie(cRO)
 	rRO.ServeHTTP(recRO, reqRO)
 	if recRO.Code != http.StatusForbidden {
@@ -40,7 +40,7 @@ func TestCreateKeyReturnsSecretAndRequiresAdmin(t *testing.T) {
 		w.Write([]byte(`{"accessKeyId":"GK9","secretAccessKey":"SECRET","created":"x","name":"k","expiration":null,"expired":false,"permissions":{"createBucket":false},"buckets":[]}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/keys", strings.NewReader(`{"name":"k"}`))
+	req := jsonReq("POST", "/api/keys", strings.NewReader(`{"name":"k"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), "SECRET") {
@@ -58,7 +58,7 @@ func TestUpdateKeyProxiesCreateBucket(t *testing.T) {
 		w.Write([]byte(`{"accessKeyId":"GK1","created":"x","name":"r","expiration":null,"expired":false,"permissions":{"createBucket":true},"buckets":[]}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/keys/GK1", strings.NewReader(`{"name":"r","create_bucket":true}`))
+	req := jsonReq("POST", "/api/keys/GK1", strings.NewReader(`{"name":"r","create_bucket":true}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !sawAllow {
@@ -73,7 +73,7 @@ func TestRevealKeyRequiresAdmin(t *testing.T) {
 	// readonly cannot reveal
 	rRO, cRO := newGarageBackedAPI(t, "readonly", garageHandler)
 	recRO := httptest.NewRecorder()
-	reqRO := httptest.NewRequest("GET", "/api/keys/GK1?reveal=1", nil)
+	reqRO := jsonReq("GET", "/api/keys/GK1?reveal=1", nil)
 	reqRO.AddCookie(cRO)
 	rRO.ServeHTTP(recRO, reqRO)
 	if recRO.Code != http.StatusForbidden {
@@ -82,7 +82,7 @@ func TestRevealKeyRequiresAdmin(t *testing.T) {
 	// admin can reveal and gets the secret
 	r, cookie := newGarageBackedAPI(t, "admin", garageHandler)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/keys/GK1?reveal=1", nil)
+	req := jsonReq("GET", "/api/keys/GK1?reveal=1", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"secretAccessKey"`) {

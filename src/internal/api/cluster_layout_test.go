@@ -12,7 +12,7 @@ func TestClusterStatisticsProxy(t *testing.T) {
 		w.Write([]byte(`{"freeform":"x","dataAvail":1,"metadataAvail":1,"incompleteAvailInfo":false,"bucketCount":2,"totalObjectCount":0,"totalObjectBytes":0}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/cluster/statistics", nil)
+	req := jsonReq("GET", "/api/cluster/statistics", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "bucketCount") {
@@ -25,7 +25,7 @@ func TestGetLayoutProxy(t *testing.T) {
 		w.Write([]byte(`{"version":1,"roles":[],"parameters":{"zoneRedundancy":"maximum"},"partitionSize":1,"stagedRoleChanges":[],"stagedParameters":null}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/cluster/layout", nil)
+	req := jsonReq("GET", "/api/cluster/layout", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"version"`) {
@@ -36,7 +36,7 @@ func TestGetLayoutProxy(t *testing.T) {
 func TestStageLayoutRequiresAdmin(t *testing.T) {
 	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/cluster/layout/stage", strings.NewReader(`{"changes":[]}`))
+	req := jsonReq("POST", "/api/cluster/layout/stage", strings.NewReader(`{"changes":[]}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -55,7 +55,7 @@ func TestApplyLayoutProxiesVersion(t *testing.T) {
 		w.Write([]byte(`{"message":["applied"]}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/cluster/layout/apply", strings.NewReader(`{"version":3}`))
+	req := jsonReq("POST", "/api/cluster/layout/apply", strings.NewReader(`{"version":3}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !sawVersion {
@@ -70,7 +70,7 @@ func TestConnectNodesProxy(t *testing.T) {
 		w.Write([]byte(`[{"success":true,"error":null}]`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/cluster/connect", strings.NewReader(`{"nodes":["n1@1.2.3.4:3901"]}`))
+	req := jsonReq("POST", "/api/cluster/connect", strings.NewReader(`{"nodes":["n1@1.2.3.4:3901"]}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || gotPath != "/v2/ConnectClusterNodes" {

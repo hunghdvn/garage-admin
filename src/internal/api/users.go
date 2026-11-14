@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -44,12 +45,16 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 		Role     string `json:"role"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.Username == "" || body.Password == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.Username == "" || body.Password == "" {
 		writeError(w, http.StatusBadRequest, "username and password are required")
 		return
 	}
 	if body.Role != "admin" && body.Role != "readonly" {
 		writeError(w, http.StatusBadRequest, "role must be admin or readonly")
+		return
+	}
+	if err := auth.ValidatePassword(body.Password); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	hash, err := auth.HashPassword(body.Password)
@@ -80,9 +85,16 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		Role     *string `json:"role"`
 		Password *string `json:"password"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
+	}
+	// Validate the password up front so a bad one does not leave a half-applied update.
+	if body.Password != nil && *body.Password != "" {
+		if err := auth.ValidatePassword(*body.Password); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 	if body.Role != nil {
 		if *body.Role != "admin" && *body.Role != "readonly" {
@@ -110,6 +122,12 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := s.DB.UpdateUserPassword(id, hash); err != nil {
 			writeError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
+		// Force the target to log in again with the new password.
+		if err := s.DB.DeleteUserSessions(id); err != nil {
+			log.Printf("revoke sessions for user %d: %v", id, err)
+			writeError(w, http.StatusInternalServerError, "failed to revoke sessions")
 			return
 		}
 	}

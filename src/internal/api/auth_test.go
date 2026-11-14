@@ -28,7 +28,7 @@ func TestLoginLogoutMe(t *testing.T) {
 	r := srv.Routes()
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"alice","password":"pw"}`))
+	req := jsonReq("POST", "/api/auth/login", strings.NewReader(`{"username":"alice","password":"pw"}`))
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("login code = %d, body=%s", rec.Code, rec.Body.String())
@@ -39,7 +39,7 @@ func TestLoginLogoutMe(t *testing.T) {
 	}
 
 	meRec := httptest.NewRecorder()
-	meReq := httptest.NewRequest("GET", "/api/auth/me", nil)
+	meReq := jsonReq("GET", "/api/auth/me", nil)
 	meReq.AddCookie(cookies[0])
 	r.ServeHTTP(meRec, meReq)
 	if meRec.Code != http.StatusOK || !strings.Contains(meRec.Body.String(), "alice") {
@@ -50,7 +50,7 @@ func TestLoginLogoutMe(t *testing.T) {
 func TestLoginBadCredentials(t *testing.T) {
 	srv := newAPITest(t)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"alice","password":"nope"}`))
+	req := jsonReq("POST", "/api/auth/login", strings.NewReader(`{"username":"alice","password":"nope"}`))
 	srv.Routes().ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("code = %d, want 401", rec.Code)
@@ -60,7 +60,7 @@ func TestLoginBadCredentials(t *testing.T) {
 func TestMeWithoutSession(t *testing.T) {
 	srv := newAPITest(t)
 	rec := httptest.NewRecorder()
-	srv.Routes().ServeHTTP(rec, httptest.NewRequest("GET", "/api/auth/me", nil))
+	srv.Routes().ServeHTTP(rec, jsonReq("GET", "/api/auth/me", nil))
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("code = %d, want 401", rec.Code)
 	}

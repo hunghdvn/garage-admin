@@ -5,6 +5,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/HungHD/garage-admin/internal/api"
 	"github.com/HungHD/garage-admin/internal/auth"
@@ -40,6 +41,9 @@ func main() {
 		log.Fatalf("crypto: %v", err)
 	}
 
+	// Expired sessions are otherwise only swept at startup.
+	go sweepSessions(context.Background(), database, time.Hour)
+
 	// Hourly usage snapshots for the history charts.
 	go (&usage.Collector{DB: database, Cipher: cipher}).Run(context.Background())
 
@@ -52,11 +56,37 @@ func main() {
 		Cipher: cipher,
 		Static: web.Handler(),
 		NewS3:  s3.New,
+
+		TrustedOrigins: cfg.TrustedOrigins,
+		TrustProxy:     cfg.TrustProxy,
 	}
 
 	log.Printf("garage-admin listening on :%s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, srv.Routes()); err != nil {
+	// No Read/WriteTimeout: uploads and downloads are long streams.
+	httpSrv := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           srv.Routes(),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	if err := httpSrv.ListenAndServe(); err != nil {
 		log.Fatal(err)
+	}
+}
+
+// sweepSessions deletes expired sessions every interval until ctx is done.
+func sweepSessions(ctx context.Context, d *db.DB, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := d.DeleteExpiredSessions(); err != nil {
+				log.Printf("warning: failed to sweep expired sessions: %v", err)
+			}
+		}
 	}
 }
 
@@ -68,6 +98,10 @@ func bootstrapAdmin(d *db.DB, cfg *config.Config) error {
 	}
 	if n > 0 || cfg.AdminUser == "" || cfg.AdminPass == "" {
 		return nil
+	}
+	if err := auth.ValidatePassword(cfg.AdminPass); err != nil {
+		// Do not fail: existing deployments may already use a weak password.
+		log.Printf("warning: ADMIN_PASSWORD does not meet the password policy (%v); change it after first login", err)
 	}
 	hash, err := auth.HashPassword(cfg.AdminPass)
 	if err != nil {

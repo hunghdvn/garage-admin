@@ -90,7 +90,7 @@ func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 		Name       string  `json:"name"`
 		Expiration *string `json:"expiration"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.Name == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
@@ -114,7 +114,7 @@ func (s *Server) handleImportKey(w http.ResponseWriter, r *http.Request) {
 		SecretAccessKey string `json:"secret_access_key"`
 		Name            string `json:"name"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.AccessKeyID == "" || body.SecretAccessKey == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.AccessKeyID == "" || body.SecretAccessKey == "" {
 		writeError(w, http.StatusBadRequest, "access_key_id and secret_access_key are required")
 		return
 	}
@@ -138,7 +138,7 @@ func (s *Server) handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		Expiration   *string `json:"expiration"`
 		NeverExpires *bool   `json:"never_expires"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}

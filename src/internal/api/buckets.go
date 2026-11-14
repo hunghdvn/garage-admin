@@ -67,7 +67,7 @@ func (s *Server) handleCreateBucket(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		GlobalAlias string `json:"global_alias"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.GlobalAlias == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.GlobalAlias == "" {
 		writeError(w, http.StatusBadRequest, "global_alias is required")
 		return
 	}
@@ -97,7 +97,7 @@ func (s *Server) handleUpdateBucket(w http.ResponseWriter, r *http.Request) {
 		} `json:"quotas"`
 		CorsRules *json.RawMessage `json:"cors_rules"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
@@ -147,7 +147,7 @@ func (s *Server) handleAddBucketAlias(w http.ResponseWriter, r *http.Request) {
 		Local       bool   `json:"local"`
 		AccessKeyID string `json:"access_key_id"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.Alias == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.Alias == "" {
 		writeError(w, http.StatusBadRequest, "alias is required")
 		return
 	}
@@ -197,7 +197,7 @@ func (s *Server) handleCleanupUploads(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		OlderThanSecs int64 `json:"older_than_secs"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.OlderThanSecs <= 0 {
+	if err := decodeJSON(w, r, &body); err != nil || body.OlderThanSecs <= 0 {
 		writeError(w, http.StatusBadRequest, "older_than_secs must be > 0")
 		return
 	}
@@ -243,7 +243,7 @@ func (s *Server) handleBucketPermission(w http.ResponseWriter, r *http.Request) 
 		Owner       bool   `json:"owner"`
 		Deny        bool   `json:"deny"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.AccessKeyID == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.AccessKeyID == "" {
 		writeError(w, http.StatusBadRequest, "access_key_id is required")
 		return
 	}

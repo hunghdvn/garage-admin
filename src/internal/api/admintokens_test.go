@@ -16,7 +16,7 @@ func TestListAdminTokensProxy(t *testing.T) {
 		w.Write([]byte(`[{"id":"tok1","created":"x","name":"app","expiration":null,"expired":false,"scope":["*"]}]`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/admin-tokens", nil)
+	req := jsonReq("GET", "/api/admin-tokens", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "tok1") {
@@ -27,7 +27,7 @@ func TestListAdminTokensProxy(t *testing.T) {
 func TestCreateAdminTokenRequiresAdminAndReturnsSecret(t *testing.T) {
 	rRO, cRO := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
 	recRO := httptest.NewRecorder()
-	reqRO := httptest.NewRequest("POST", "/api/admin-tokens", strings.NewReader(`{"name":"x","scope":["*"]}`))
+	reqRO := jsonReq("POST", "/api/admin-tokens", strings.NewReader(`{"name":"x","scope":["*"]}`))
 	reqRO.AddCookie(cRO)
 	rRO.ServeHTTP(recRO, reqRO)
 	if recRO.Code != http.StatusForbidden {
@@ -38,7 +38,7 @@ func TestCreateAdminTokenRequiresAdminAndReturnsSecret(t *testing.T) {
 		w.Write([]byte(`{"id":"tok9","created":"x","name":"x","expiration":null,"expired":false,"scope":["*"],"secretToken":"SECRET"}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/admin-tokens", strings.NewReader(`{"name":"x","scope":["*"]}`))
+	req := jsonReq("POST", "/api/admin-tokens", strings.NewReader(`{"name":"x","scope":["*"]}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), "SECRET") {
@@ -55,7 +55,7 @@ func TestDeleteAdminTokenProxiesID(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/api/admin-tokens/tok1", nil)
+	req := jsonReq("DELETE", "/api/admin-tokens/tok1", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || gotQuery != "id=tok1" {
@@ -66,7 +66,7 @@ func TestDeleteAdminTokenProxiesID(t *testing.T) {
 func TestDeleteAdminTokenRequiresAdmin(t *testing.T) {
 	r, cookie := newGarageBackedAPI(t, "readonly", func(w http.ResponseWriter, _ *http.Request) {})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/api/admin-tokens/tok1", nil)
+	req := jsonReq("DELETE", "/api/admin-tokens/tok1", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {

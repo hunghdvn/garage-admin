@@ -17,16 +17,16 @@ import (
 
 // fakeS3 implements s3.Client for handler tests.
 type fakeS3 struct {
-	entries     []s3.Entry
-	putKey      string
-	putBody     string
-	delKey      string
-	delPrefix   string
-	getBody     string
-	moveSrc     string
-	moveDst     string
-	movePfxSrc  string
-	movePfxDst  string
+	entries    []s3.Entry
+	putKey     string
+	putBody    string
+	delKey     string
+	delPrefix  string
+	getBody    string
+	moveSrc    string
+	moveDst    string
+	movePfxSrc string
+	movePfxDst string
 }
 
 func (f *fakeS3) List(_ context.Context, _, _ string) ([]s3.Entry, error) { return f.entries, nil }
@@ -75,7 +75,7 @@ func newFilesAPI(t *testing.T, role string, fake *fakeS3) (http.Handler, *http.C
 	}
 	r := srv.Routes()
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
+	r.ServeHTTP(rec, jsonReq("POST", "/api/auth/login", strings.NewReader(`{"username":"u","password":"pw"}`)))
 	return r, rec.Result().Cookies()[0]
 }
 
@@ -83,7 +83,7 @@ func TestListFiles(t *testing.T) {
 	fake := &fakeS3{entries: []s3.Entry{{Key: "a/", Name: "a", IsDir: true}, {Key: "f.txt", Name: "f.txt", Size: 3}}}
 	r, cookie := newFilesAPI(t, "readonly", fake)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/files?bucket=b&prefix=", nil)
+	req := jsonReq("GET", "/api/files?bucket=b&prefix=", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "f.txt") {
@@ -94,7 +94,7 @@ func TestListFiles(t *testing.T) {
 func TestListFilesRequiresBucket(t *testing.T) {
 	r, cookie := newFilesAPI(t, "readonly", &fakeS3{})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/files", nil)
+	req := jsonReq("GET", "/api/files", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -106,7 +106,7 @@ func TestDownloadStreams(t *testing.T) {
 	fake := &fakeS3{getBody: "hello"}
 	r, cookie := newFilesAPI(t, "readonly", fake)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/files/download?bucket=b&key=f.txt", nil)
+	req := jsonReq("GET", "/api/files/download?bucket=b&key=f.txt", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || rec.Body.String() != "hello" {
@@ -120,7 +120,7 @@ func TestDownloadStreams(t *testing.T) {
 func TestUploadRequiresAdmin(t *testing.T) {
 	r, cookie := newFilesAPI(t, "readonly", &fakeS3{})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/files/upload?bucket=b&key=x.txt", strings.NewReader("data"))
+	req := jsonReq("POST", "/api/files/upload?bucket=b&key=x.txt", strings.NewReader("data"))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -133,7 +133,7 @@ func TestUploadAndDeleteAsAdmin(t *testing.T) {
 	r, cookie := newFilesAPI(t, "admin", fake)
 
 	up := httptest.NewRecorder()
-	upReq := httptest.NewRequest("POST", "/api/files/upload?bucket=b&key=dir/x.txt", strings.NewReader("payload"))
+	upReq := jsonReq("POST", "/api/files/upload?bucket=b&key=dir/x.txt", strings.NewReader("payload"))
 	upReq.Header.Set("Content-Type", "text/plain")
 	upReq.AddCookie(cookie)
 	r.ServeHTTP(up, upReq)
@@ -142,7 +142,7 @@ func TestUploadAndDeleteAsAdmin(t *testing.T) {
 	}
 
 	del := httptest.NewRecorder()
-	delReq := httptest.NewRequest("DELETE", "/api/files?bucket=b&key=dir/x.txt", nil)
+	delReq := jsonReq("DELETE", "/api/files?bucket=b&key=dir/x.txt", nil)
 	delReq.AddCookie(cookie)
 	r.ServeHTTP(del, delReq)
 	if del.Code != http.StatusOK || fake.delKey != "dir/x.txt" {
@@ -154,7 +154,7 @@ func TestCreateFolderAsAdmin(t *testing.T) {
 	fake := &fakeS3{}
 	r, cookie := newFilesAPI(t, "admin", fake)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/files/folder?bucket=b&prefix=newdir", nil)
+	req := jsonReq("POST", "/api/files/folder?bucket=b&prefix=newdir", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || fake.putKey != "newdir/" {
@@ -166,7 +166,7 @@ func TestRenameFileMovesObject(t *testing.T) {
 	fake := &fakeS3{}
 	r, cookie := newFilesAPI(t, "admin", fake)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/files/rename?bucket=b", strings.NewReader(`{"src":"a/old.txt","dst":"a/new.txt"}`))
+	req := jsonReq("POST", "/api/files/rename?bucket=b", strings.NewReader(`{"src":"a/old.txt","dst":"a/new.txt"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || fake.moveSrc != "a/old.txt" || fake.moveDst != "a/new.txt" {
@@ -178,7 +178,7 @@ func TestRenameFolderMovesPrefix(t *testing.T) {
 	fake := &fakeS3{}
 	r, cookie := newFilesAPI(t, "admin", fake)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/files/rename?bucket=b", strings.NewReader(`{"src":"docs/","dst":"papers"}`))
+	req := jsonReq("POST", "/api/files/rename?bucket=b", strings.NewReader(`{"src":"docs/","dst":"papers"}`))
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || fake.movePfxSrc != "docs/" || fake.movePfxDst != "papers/" {
@@ -190,7 +190,7 @@ func TestDeleteFolderRecursive(t *testing.T) {
 	fake := &fakeS3{}
 	r, cookie := newFilesAPI(t, "admin", fake)
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("DELETE", "/api/files?bucket=b&key=docs/", nil)
+	req := jsonReq("DELETE", "/api/files?bucket=b&key=docs/", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || fake.delPrefix != "docs/" || fake.delKey != "" {

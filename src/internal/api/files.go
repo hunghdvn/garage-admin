@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -29,6 +30,18 @@ func writeS3Error(w http.ResponseWriter, err error) {
 		}
 	}
 	writeError(w, http.StatusBadGateway, err.Error())
+}
+
+// writeS3ClientError reports a failure to build the S3 client. Only the
+// user-facing "not configured" error is returned verbatim; anything else
+// (decrypt, SQL) is logged and replaced with a generic message.
+func writeS3ClientError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errS3NotConfigured) {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	log.Printf("s3 client: %v", err)
+	writeError(w, http.StatusBadRequest, "cannot build S3 client for this cluster")
 }
 
 func (s *Server) mountFiles(r chi.Router) {
@@ -71,7 +84,7 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	client, err := s.s3ClientForRequest(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeS3ClientError(w, err)
 		return
 	}
 	entries, err := client.List(r.Context(), bucket, r.URL.Query().Get("prefix"))
@@ -91,7 +104,7 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	client, err := s.s3ClientForRequest(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeS3ClientError(w, err)
 		return
 	}
 	obj, err := client.Get(r.Context(), bucket, key)
@@ -121,7 +134,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	client, err := s.s3ClientForRequest(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeS3ClientError(w, err)
 		return
 	}
 	defer r.Body.Close()
@@ -142,7 +155,7 @@ func (s *Server) handleCreateFolder(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimSuffix(prefix, "/") + "/"
 	client, err := s.s3ClientForRequest(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeS3ClientError(w, err)
 		return
 	}
 	if err := client.Put(r.Context(), bucket, key, strings.NewReader(""), 0, ""); err != nil {
@@ -161,7 +174,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 	client, err := s.s3ClientForRequest(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeS3ClientError(w, err)
 		return
 	}
 	// A key ending in "/" is a folder: delete it (and everything under it) recursively.
@@ -183,7 +196,7 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
 		Src string `json:"src"`
 		Dst string `json:"dst"`
 	}
-	if err := decodeJSON(r, &body); err != nil || bucket == "" || body.Src == "" || body.Dst == "" {
+	if err := decodeJSON(w, r, &body); err != nil || bucket == "" || body.Src == "" || body.Dst == "" {
 		writeError(w, http.StatusBadRequest, "bucket, src and dst are required")
 		return
 	}
@@ -193,7 +206,7 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
 	}
 	client, err := s.s3ClientForRequest(r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeS3ClientError(w, err)
 		return
 	}
 	// Folder rename (both keys end with "/") moves every object under the prefix.

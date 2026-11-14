@@ -82,7 +82,7 @@ func (s *Server) handleWorkerInfo(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ID uint64 `json:"id"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "id is required")
 		return
 	}
@@ -110,7 +110,7 @@ func (s *Server) handleSetWorkerVariable(w http.ResponseWriter, r *http.Request)
 		Variable string `json:"variable"`
 		Value    string `json:"value"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.Variable == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.Variable == "" {
 		writeError(w, http.StatusBadRequest, "variable and value are required")
 		return
 	}
@@ -137,7 +137,7 @@ func (s *Server) handleRepair(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		RepairType string `json:"repair_type"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.RepairType == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.RepairType == "" {
 		writeError(w, http.StatusBadRequest, "repair_type is required")
 		return
 	}
@@ -164,7 +164,7 @@ func (s *Server) handleGetBlockInfo(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		BlockHash string `json:"block_hash"`
 	}
-	if err := decodeJSON(r, &body); err != nil || body.BlockHash == "" {
+	if err := decodeJSON(w, r, &body); err != nil || body.BlockHash == "" {
 		writeError(w, http.StatusBadRequest, "block_hash is required")
 		return
 	}
@@ -182,7 +182,7 @@ func (s *Server) handleRetryBlocks(w http.ResponseWriter, r *http.Request) {
 		All         bool     `json:"all"`
 		BlockHashes []string `json:"block_hashes"`
 	}
-	if err := decodeJSON(r, &body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
@@ -203,7 +203,7 @@ func (s *Server) handlePurgeBlocks(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		BlockHashes []string `json:"block_hashes"`
 	}
-	if err := decodeJSON(r, &body); err != nil || len(body.BlockHashes) == 0 {
+	if err := decodeJSON(w, r, &body); err != nil || len(body.BlockHashes) == 0 {
 		writeError(w, http.StatusBadRequest, "block_hashes are required")
 		return
 	}

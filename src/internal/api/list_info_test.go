@@ -17,7 +17,7 @@ func unknownEndpoint(w http.ResponseWriter) {
 func getJSON(t *testing.T, r http.Handler, cookie *http.Cookie, path string) []map[string]any {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", path, nil)
+	req := jsonReq("GET", path, nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -120,7 +120,7 @@ func TestListKeysDoesNotHideRealGarageErrors(t *testing.T) {
 		w.Write([]byte(`{"code":"AccessDenied","message":"token lacks scope"}`))
 	})
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/keys", nil)
+	req := jsonReq("GET", "/api/keys", nil)
 	req.AddCookie(cookie)
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
